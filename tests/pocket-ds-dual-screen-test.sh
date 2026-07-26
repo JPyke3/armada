@@ -21,9 +21,15 @@ grep -q 'dual_required=1' "$ROOT/system_files/usr/libexec/armada/desktop-bootstr
 grep -q 'elif /usr/libexec/armada/setup-dual-screen; then' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
 
 # Switching back to game mode should explicitly disable the secondary output
-# before leaving Plasma so the second panel remains desktop-only.
+# and inhibit lower touch before leaving Plasma, so the second panel remains
+# desktop-only and the dark lower digitizer cannot steer Steam during handoff.
+grep -q 'set_secondary_touchscreen 1' "$session_control"
 grep -q 'set_secondary_output disable' "$session_control"
+grep -q 'touchscreen-inhibit "${ARMADA_SECONDARY_TOUCHSCREEN}" "${inhibited}"' "$session_control"
 grep -q 'kscreen-doctor "output.${ARMADA_SECONDARY_CONNECTOR}.${state}"' "$session_control"
+
+grep -q 'touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 1' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
+grep -q 'touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 0' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
 
 python3 -m py_compile "$setup_dual"
 bash -n "$session_control"
