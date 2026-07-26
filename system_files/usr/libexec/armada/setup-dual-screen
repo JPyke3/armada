@@ -112,6 +112,8 @@ def main():
     x = max(0, round((primary_size[0] - secondary_size[0]) / 2))
     subprocess.run(
         ["kscreen-doctor",
+         f"output.{primary}.enable",
+         f"output.{secondary}.enable",
          f"output.{primary}.priority.1",
          f"output.{secondary}.priority.2",
          f"output.{primary}.position.0,0",
