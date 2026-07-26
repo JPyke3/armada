@@ -64,7 +64,7 @@ def pin_touchscreen(name, connector, devices):
     if name not in devices:
         print(f"setup-dual-screen: input device not found: {name}",
               file=sys.stderr)
-        return False
+        return True
     vendor, product, event = devices[name]
     # Persisted mapping, applied by KWin when the device is added.
     persisted = subprocess.run(
