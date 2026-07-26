@@ -24,6 +24,7 @@ unzip -q "${lsfg_archive}" -d "${lsfg_extract}"
 lsfg_src="${lsfg_extract}/Decky LSFG-VK"
 patch --directory="${lsfg_src}" --strip=1 \
     < /ctx/decky/decky-lsfg-vk/patches/0001-Adapt-Decky-LSFG-VK-for-Armada.patch
+sed -i 's/Decky LSFG-VK/Decky LSFG-VK (Armada)/g' "${lsfg_src}/dist/index.js"
 install -d -m 0755 /usr/share/decky-plugins/decky-lsfg-vk
 cp -a "${lsfg_src}/." /usr/share/decky-plugins/decky-lsfg-vk/
 install -m 0755 /packages/lsfg-vk/liblsfg-vk.so \
