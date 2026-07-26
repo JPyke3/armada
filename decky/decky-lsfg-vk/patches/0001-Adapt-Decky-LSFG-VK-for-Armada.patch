@@ -1,16 +1,28 @@
-From 057881764028bdfacb00e817bafc2249cde74800 Mon Sep 17 00:00:00 2001
+From 8ba24834a871394ac1308dd8ad575d248a2ee7a2 Mon Sep 17 00:00:00 2001
 From: JPyke3 <github@pyk.ee>
-Date: Sun, 26 Jul 2026 17:34:22 +1000
+Date: Mon, 27 Jul 2026 08:49:34 +1000
 Subject: [PATCH] Adapt Decky LSFG-VK for Armada
 
 ---
+ plugin.json                         | 2 +-
  py_modules/lsfg_vk/config_schema.py | 4 ++--
  py_modules/lsfg_vk/installation.py  | 6 +++---
  py_modules/lsfg_vk/plugin.py        | 1 +
- 3 files changed, 6 insertions(+), 5 deletions(-)
+ 4 files changed, 7 insertions(+), 6 deletions(-)
 
+diff --git a/plugin.json b/plugin.json
+index ea49519..1f59aec 100644
+--- a/plugin.json
++++ b/plugin.json
+@@ -1,5 +1,5 @@
+ {
+-  "name": "Decky LSFG-VK",
++  "name": "Decky LSFG-VK (Armada)",
+   "author": "Kurt Himebauch (xXJSONDeruloXx)",
+   "flags": [],
+   "api_version": 1,
 diff --git a/py_modules/lsfg_vk/config_schema.py b/py_modules/lsfg_vk/config_schema.py
-index 4ab2dcb..ace7f03 100755
+index 4ab2dcb..ace7f03 100644
 --- a/py_modules/lsfg_vk/config_schema.py
 +++ b/py_modules/lsfg_vk/config_schema.py
 @@ -130,8 +130,8 @@ class ConfigurationManager:
@@ -25,7 +37,7 @@ index 4ab2dcb..ace7f03 100755
          return defaults
      
 diff --git a/py_modules/lsfg_vk/installation.py b/py_modules/lsfg_vk/installation.py
-index 4f01be1..3dcfc28 100755
+index 4f01be1..3dcfc28 100644
 --- a/py_modules/lsfg_vk/installation.py
 +++ b/py_modules/lsfg_vk/installation.py
 @@ -53,7 +53,7 @@ class InstallationService(BaseService):
@@ -56,7 +68,7 @@ index 4f01be1..3dcfc28 100755
                              self.log.info(f"Copied {file} to {dst_file}")
      
 diff --git a/py_modules/lsfg_vk/plugin.py b/py_modules/lsfg_vk/plugin.py
-index cb59b4f..14c5900 100755
+index cb59b4f..14c5900 100644
 --- a/py_modules/lsfg_vk/plugin.py
 +++ b/py_modules/lsfg_vk/plugin.py
 @@ -418,6 +418,7 @@ class Plugin:
