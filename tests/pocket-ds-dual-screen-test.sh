@@ -23,12 +23,21 @@ grep -q 'elif /usr/libexec/armada/setup-dual-screen; then' "$ROOT/system_files/u
 # Switching back to game mode should explicitly disable the secondary output
 # and inhibit lower touch before leaving Plasma, so the second panel remains
 # desktop-only and the dark lower digitizer cannot steer Steam during handoff.
+# On Pocket DS the lower-panel backlight follows the DRM output/DPMS state; the
+# session policy check therefore treats disabling DSI-2 as disabling both the
+# visible screen and its backlight.
 grep -q 'set_secondary_touchscreen 1' "$session_control"
 grep -q 'set_secondary_output disable' "$session_control"
 grep -q 'touchscreen-inhibit "${ARMADA_SECONDARY_TOUCHSCREEN}" "${inhibited}"' "$session_control"
 grep -q 'kscreen-doctor "output.${ARMADA_SECONDARY_CONNECTOR}.${state}"' "$session_control"
 
+# Game Mode must never enable or lay out the secondary panel. It may only
+# inhibit the secondary touchscreen as a belt-and-suspenders guard; screen and
+# backlight availability is Desktop-only via desktop-bootstrap/setup-dual-screen.
 grep -q 'touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 1' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
+! grep -q 'ARMADA_SECONDARY_CONNECTOR' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
+! grep -q 'setup-dual-screen' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
+
 grep -q 'touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 0' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
 
 python3 -m py_compile "$setup_dual"
