@@ -11,12 +11,15 @@ session_control="$ROOT/system_files/usr/libexec/armada/session-control"
 # still targets the primary connector through sessions.d/steam.
 grep -q '^ARMADA_PRIMARY_CONNECTOR=DSI-1$' "$pocket_ds_conf"
 grep -q '^ARMADA_SECONDARY_CONNECTOR=DSI-2$' "$pocket_ds_conf"
+grep -q '^ARMADA_PANEL_ORIENTATION=left$' "$pocket_ds_conf"
 grep -q "^ARMADA_PRIMARY_TOUCHSCREEN='generic ft5x06 (44)'$" "$pocket_ds_conf"
 grep -q "^ARMADA_SECONDARY_TOUCHSCREEN='Goodix Capacitive TouchScreen'$" "$pocket_ds_conf"
 
 # Desktop setup must actively re-enable the second output, not just position it.
 grep -q 'f"output.{primary}.enable"' "$setup_dual"
 grep -q 'f"output.{secondary}.enable"' "$setup_dual"
+grep -q 'f"output.{primary}.rotation.{orientation}"' "$setup_dual"
+grep -q 'f"output.{secondary}.rotation.{orientation}"' "$setup_dual"
 grep -q 'dual_required=1' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
 grep -q 'elif /usr/libexec/armada/setup-dual-screen; then' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
 
