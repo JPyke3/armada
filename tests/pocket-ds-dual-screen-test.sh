@@ -11,7 +11,7 @@ session_control="$ROOT/system_files/usr/libexec/armada/session-control"
 # still targets the primary connector through sessions.d/steam.
 grep -q '^ARMADA_PRIMARY_CONNECTOR=DSI-1$' "$pocket_ds_conf"
 grep -q '^ARMADA_SECONDARY_CONNECTOR=DSI-2$' "$pocket_ds_conf"
-grep -q "^ARMADA_PRIMARY_TOUCHSCREEN='Generic ft5x06 (44)'$" "$pocket_ds_conf"
+grep -q "^ARMADA_PRIMARY_TOUCHSCREEN='generic ft5x06 (44)'$" "$pocket_ds_conf"
 grep -q "^ARMADA_SECONDARY_TOUCHSCREEN='Goodix Capacitive TouchScreen'$" "$pocket_ds_conf"
 
 # Desktop setup must actively re-enable the second output, not just position it.
@@ -34,11 +34,12 @@ grep -q 'kscreen-doctor "output.${ARMADA_SECONDARY_CONNECTOR}.${state}"' "$sessi
 # Game Mode must never enable or lay out the secondary panel. It may only
 # inhibit the secondary touchscreen as a belt-and-suspenders guard; screen and
 # backlight availability is Desktop-only via desktop-bootstrap/setup-dual-screen.
-grep -q 'touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 1' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
+grep -q 'sudo -n /usr/libexec/armada/touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 1' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
 ! grep -q 'ARMADA_SECONDARY_CONNECTOR' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
 ! grep -q 'setup-dual-screen' "$ROOT/system_files/etc/gamescope-session-plus/sessions.d/steam"
 
-grep -q 'touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 0' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
+grep -q 'sudo -n /usr/libexec/armada/touchscreen-inhibit "$ARMADA_SECONDARY_TOUCHSCREEN" 0' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
+grep -q 'NOPASSWD: /usr/libexec/armada/touchscreen-inhibit \*' "$ROOT/build_files/50-create-user.sh"
 
 python3 -m py_compile "$setup_dual"
 bash -n "$session_control"
