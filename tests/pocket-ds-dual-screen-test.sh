@@ -21,11 +21,11 @@ grep -q 'dual_required=1' "$ROOT/system_files/usr/libexec/armada/desktop-bootstr
 grep -q 'elif /usr/libexec/armada/setup-dual-screen; then' "$ROOT/system_files/usr/libexec/armada/desktop-bootstrap"
 
 # Switching back to game mode should explicitly disable the secondary output
-# and inhibit lower touch before leaving Plasma, so the second panel remains
-# desktop-only and the dark lower digitizer cannot steer Steam during handoff.
-# On Pocket DS the lower-panel backlight follows the DRM output/DPMS state; the
-# session policy check therefore treats disabling DSI-2 as disabling both the
-# visible screen and its backlight.
+# and inhibit lower touch before leaving Plasma, so Game Mode cannot scan out
+# to the lower panel and the lower digitizer cannot steer Steam during handoff.
+# Pocket DS live testing showed the visible lower backlight can remain lit even
+# with DSI-2 disabled/DPMS Off; that requires a separate kernel/panel power fix
+# and is not something this userspace policy test should overclaim.
 grep -q 'set_secondary_touchscreen 1' "$session_control"
 grep -q 'set_secondary_output disable' "$session_control"
 grep -q 'touchscreen-inhibit "${ARMADA_SECONDARY_TOUCHSCREEN}" "${inhibited}"' "$session_control"
