@@ -55,7 +55,7 @@ internal storage so it boots without the card (see
 
 1. Flash the Armada image to SD.
 
-   Use Balena Etcher to flash the latest `armada-YYYYMMDD.img.gz` image to a
+   Use a disk imaging tool to write the latest `armada-YYYYMMDD.img.gz` image to a
    64GB or larger SD card (A2 speed for best results).
 
 2. Flash the ROCKNIX ABL for your device.
