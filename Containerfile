@@ -4,6 +4,7 @@ ARG MESA_ANDROID_PKG=ghcr.io/armada-os/armada-packages/mesa-android@sha256:2ef4f
 ARG MANGOHUD_PKG=ghcr.io/armada-os/armada-packages/mangohud@sha256:6ed92b44d267a8d2e1339968b59c2679cfd30e81494d4990dcc2c92e0be4fc10
 ARG GAMESCOPE_PKG=ghcr.io/armada-os/armada-packages/gamescope@sha256:5c8896b2ef14b75e9e887bcea4a3ffd6d046bf9fe6e1a4133812880a76744a1d
 ARG GAMESCOPE_SESSION_PKG=ghcr.io/armada-os/armada-packages/gamescope-session@sha256:d44de289a54eb6d7b2af9b0505fc7580106dbe62318edd4a9a3afd3383351fc8
+ARG KWIN_PKG=ghcr.io/armada-os/armada-packages/kwin:latest
 ARG POWERDEVIL_PKG=ghcr.io/armada-os/armada-packages/powerdevil@sha256:f6d25143dca84f5f71076a3c992e06de87f7ae25fd046cfeb21999df989c4f8b
 ARG KERNEL_PKG=ghcr.io/armada-os/armada-packages/kernel@sha256:aa5b9a46c780f32552e8c9c038825d035b02970c2be0aab502c6c8d9bdfb1460
 ARG INPUTPLUMBER_PKG=ghcr.io/armada-os/armada-packages/inputplumber@sha256:1369b521b95af6b34b434ac930889faea6e1d18f0a4922a7e90bcb6837da1ad7
@@ -17,6 +18,7 @@ FROM ${MESA_PKG} AS mesa
 FROM ${MANGOHUD_PKG} AS mangohud
 FROM ${GAMESCOPE_PKG} AS gamescope
 FROM ${GAMESCOPE_SESSION_PKG} AS gamescope-session
+FROM ${KWIN_PKG} AS kwin
 FROM ${POWERDEVIL_PKG} AS powerdevil
 FROM ${KERNEL_PKG} AS kernel
 FROM ${INPUTPLUMBER_PKG} AS inputplumber
@@ -48,6 +50,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=bind,from=mangohud,source=/rpms,target=/packages/mangohud \
     --mount=type=bind,from=gamescope,source=/rpms,target=/packages/gamescope \
     --mount=type=bind,from=gamescope-session,source=/rpms,target=/packages/gamescope-session \
+    --mount=type=bind,from=kwin,source=/rpms,target=/packages/kwin \
     --mount=type=bind,from=powerdevil,source=/rpms,target=/packages/powerdevil \
     --mount=type=bind,from=kernel,source=/kernel,target=/packages/kernel \
     --mount=type=bind,from=inputplumber,source=/rpms,target=/packages/inputplumber \

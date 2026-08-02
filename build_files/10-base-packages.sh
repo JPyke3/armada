@@ -95,6 +95,12 @@ dnf5 -y install --setopt=install_weak_deps=False \
     gwenview \
     kwrite
 
+# Patched KWin lets devices pin Plasma's virtual keyboard to a configured output.
+dnf5 -y install --setopt=install_weak_deps=False \
+    /packages/kwin/kwin-[0-9]*.rpm \
+    /packages/kwin/kwin-common-[0-9]*.rpm \
+    /packages/kwin/kwin-libs-[0-9]*.rpm
+
 # PowerDevil's KWin backend treats 0 as safe; reserve 5% for internal panels.
 dnf5 -y install --setopt=install_weak_deps=False /packages/powerdevil/powerdevil-*.fc44.armada.*.rpm
 
