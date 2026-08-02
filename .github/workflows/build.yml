@@ -15,6 +15,10 @@ on:
         description: "Branch to build. Leave empty to use the workflow ref."
         type: string
         default: ""
+      build_patched_kwin:
+        description: "Rebuild KWin with Armada's virtual-keyboard output patch."
+        type: boolean
+        default: false
 
 env:
   ARMADA_CANONICAL_IMAGE: "ghcr.io/armada-os/armada"
@@ -136,6 +140,7 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           build-args: |
             ARMADA_VERSION=${{ steps.version.outputs.version }}
+            ARMADA_BUILD_PATCHED_KWIN=${{ inputs.build_patched_kwin && '1' || '0' }}
           oci: false
 
       - name: Rechunk for small OTA deltas

@@ -4,6 +4,9 @@ set -euxo pipefail
 cd /ctx/build_files
 
 ./10-base-packages.sh
+if [[ ${ARMADA_BUILD_PATCHED_KWIN:-0} == 1 ]]; then
+    ./15-install-patched-kwin.sh
+fi
 ./20-install-kernel.sh
 ./30-install-steam-session.sh
 ./40-vendor-system-files.sh

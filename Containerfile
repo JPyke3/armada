@@ -36,10 +36,12 @@ RUN npm run build
 FROM scratch AS ctx
 COPY build_files /build_files/
 COPY decky /decky/
+COPY docs /docs/
 COPY system_files /system_files/
 
 FROM quay.io/fedora/fedora-bootc:44
 ARG ARMADA_VERSION=unknown
+ARG ARMADA_BUILD_PATCHED_KWIN=0
 LABEL org.opencontainers.image.version="${ARMADA_VERSION}"
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
@@ -62,6 +64,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     mkdir -p /usr/lib/armada && \
     printf '%s\n' "${ARMADA_VERSION}" >/usr/lib/armada/version && \
+    export ARMADA_BUILD_PATCHED_KWIN="${ARMADA_BUILD_PATCHED_KWIN}" && \
     /ctx/build_files/build.sh
 
 RUN bootc container lint
