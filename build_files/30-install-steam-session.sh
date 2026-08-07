@@ -113,6 +113,8 @@ rm -rf "${PROTON_DIR:?}/${PROTON_TOOL_NAME}"
 mv "${PROTON_DIR}/${PROTON_ARCHIVE_NAME}" "${PROTON_DIR}/${PROTON_TOOL_NAME}"
 # Missing runtime app makes Steam fall back to Proton 10.
 sed -i '/require_tool_appid/d' "${PROTON_DIR}/${PROTON_TOOL_NAME}/toolmanifest.vdf"
+python3 /ctx/build_files/patch-proton-cachyos-dxvk-probe.py \
+    "${PROTON_DIR}/${PROTON_TOOL_NAME}/proton"
 python3 /ctx/build_files/set-steam-default-compat.py "${STEAM_HOME}" "${PROTON_TOOL_NAME}" "${PROTON_DIR}"
 rm -f "/tmp/${PROTON_TAR}" "/tmp/${PROTON_ARCHIVE_NAME}.sha512sum"
 

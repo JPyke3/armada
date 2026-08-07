@@ -16,6 +16,8 @@ export const saveCompatApplied = (appids: string[]) => {
   return request;
 };
 export const setSshEnabled = (enabled: boolean) => call<[boolean], boolean>("set_ssh_enabled", enabled);
+export const reapplyPerf = () => call<[], { pids?: number }>("reapply_perf");
+export const restartGameMode = () => call<[], boolean>("restart_game_mode");
 export const setControllerType = (value: string) => call<[string], string>("set_controller_type", value);
 export const getControllerState = () => call<[], CalibrationState>("get_controller_state");
 export const saveCalibration = (capture: Capture) => call<[Capture], CalibrationState>("save_calibration", capture);

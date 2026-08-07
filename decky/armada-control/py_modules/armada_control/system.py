@@ -79,3 +79,44 @@ def read_text(path):
 
 def set_ssh_enabled(enabled):
     return bool(call("set_ssh_enabled", enabled=bool(enabled)).get("enabled"))
+
+
+CORE_PRESET_VARS = (
+    ("big", "Big Cores", "ARMADA_BIG_CORES"),
+    ("prime", "Prime Cores", "ARMADA_PRIME_CORES"),
+    ("little", "Little Cores", "ARMADA_LITTLE_CORES"),
+)
+
+
+def perf_info():
+    governors = [
+        g for g in read_text(
+            Path("/sys/devices/system/cpu/cpufreq/policy0/scaling_available_governors")
+        ).split()
+        # userspace = kernel does no scaling, waits for a scaling_setspeed
+        # writer; nothing on the image writes it, so it would freeze clocks.
+        if g != "userspace"
+    ]
+    schedulers = ["eevdf"] + [
+        name for name in ("cosmos", "lavd") if Path(f"/usr/bin/scx_{name}").exists()
+    ]
+    env = device_env()
+    presets = [{"data": "all", "label": "All Cores"}]
+    for key, label, var in CORE_PRESET_VARS:
+        cpulist = env.get(var, "")
+        if cpulist:
+            presets.append({"data": key, "label": f"{label} ({cpulist})"})
+    return {
+        "governors": governors,
+        "schedulers": schedulers,
+        "corePresets": presets,
+        "cpuCount": os.cpu_count() or 8,
+    }
+
+
+def reapply_perf():
+    return call("reapply_perf")
+
+
+def restart_game_mode():
+    return bool(call("restart_game_mode").get("ok"))

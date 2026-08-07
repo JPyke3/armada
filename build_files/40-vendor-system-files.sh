@@ -103,6 +103,8 @@ systemctl mask bootloader-update.service
 # irqbalance re-spreads IRQs across all cores, overriding Armada's IRQ affinity policy.
 systemctl mask irqbalance.service
 
+systemctl mask armada-save-devcoredump@.service
+
 # Only plain suspend is supported (via the suspend-dispatch drop-in); mask the rest.
 systemctl mask systemd-hibernate.service systemd-hybrid-sleep.service systemd-suspend-then-hibernate.service
 

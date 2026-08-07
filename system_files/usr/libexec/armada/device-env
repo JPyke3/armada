@@ -37,6 +37,39 @@ if [[ -n "$profile" && -r "$device_dir/$profile.conf" ]]; then
     source "$device_dir/$profile.conf"
 fi
 
+# CPU topology by SoC (device conf may override). Cpulists are ordered:
+# presets expand in host order, WINE_CPU_TOPOLOGY consumers keep the order.
+# BIG includes the prime cores; PRIME is the strict subset. Empty
+# ARMADA_IRQ_CORES means no IRQ restriction.
+case "${ARMADA_SOC_CLASS:-}" in
+    SM8250)
+        : "${ARMADA_LITTLE_CORES=0-3}"
+        : "${ARMADA_BIG_CORES=4-7}"
+        : "${ARMADA_PRIME_CORES=7}"
+        # references run SM8250 unrestricted; the A55s are too weak to
+        # carry all IRQ handling
+        : "${ARMADA_IRQ_CORES=}"
+        ;;
+    SM8550)
+        : "${ARMADA_LITTLE_CORES=0-2}"
+        : "${ARMADA_BIG_CORES=3-7}"
+        : "${ARMADA_PRIME_CORES=7}"
+        : "${ARMADA_IRQ_CORES=0-2}"
+        ;;
+    SM8650)
+        : "${ARMADA_LITTLE_CORES=0-1}"
+        : "${ARMADA_BIG_CORES=2-7}"
+        : "${ARMADA_PRIME_CORES=7}"
+        : "${ARMADA_IRQ_CORES=0-1}"
+        ;;
+    SM8750)
+        : "${ARMADA_LITTLE_CORES=}"
+        : "${ARMADA_BIG_CORES=0-7}"
+        : "${ARMADA_PRIME_CORES=6-7}"
+        : "${ARMADA_IRQ_CORES=}"
+        ;;
+esac
+
 vars=(
     ARMADA_DEVICE_ID
     ARMADA_DEVICE_NAME
@@ -45,6 +78,7 @@ vars=(
     ARMADA_PRIMARY_CONNECTOR
     ARMADA_PRIMARY_BACKLIGHT
     ARMADA_SECONDARY_CONNECTOR
+    ARMADA_VIRTUAL_KEYBOARD_CONNECTOR
     ARMADA_PRIMARY_TOUCHSCREEN
     ARMADA_SECONDARY_TOUCHSCREEN
     ARMADA_PANEL_TYPE
@@ -56,6 +90,10 @@ vars=(
     ARMADA_GAMESCOPE_FAKE_OUTPUT_MM
     ARMADA_HDR_CAPABLE
     ARMADA_GAMEPAD_QUIRK
+    ARMADA_LITTLE_CORES
+    ARMADA_BIG_CORES
+    ARMADA_PRIME_CORES
+    ARMADA_IRQ_CORES
 )
 
 for var in "${vars[@]}"; do

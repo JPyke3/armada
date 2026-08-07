@@ -24,6 +24,12 @@ FORCE_COMPOSITION_ROTATION="${ARMADA_GAMESCOPE_FORCE_COMPOSITION_ROTATION:-0}"
 if [[ -n "${ARMADA_GAMESCOPE_FAKE_OUTPUT_MM:-}" ]]; then
     export GAMESCOPE_FAKE_OUTPUT_MM="$ARMADA_GAMESCOPE_FAKE_OUTPUT_MM"
 fi
+# Gamescope selects Vulkan queue priority before the runtime performance daemon starts.
+_armada_tweaks_config="${ARMADA_TWEAKS_CONFIG:-/etc/armada/game-tweaks.json}"
+if jq -e '.global.gamescopeVulkanRealtime == true' "$_armada_tweaks_config" >/dev/null 2>&1; then
+    export GAMESCOPE_FORCE_VULKAN_REALTIME=1
+fi
+unset _armada_tweaks_config
 
 # Advertise HDR capability without selecting the output mode. Steam owns HDR
 # and ITM enable state through gamescope's runtime properties.
