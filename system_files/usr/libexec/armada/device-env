@@ -94,6 +94,8 @@ vars=(
     ARMADA_BIG_CORES
     ARMADA_PRIME_CORES
     ARMADA_IRQ_CORES
+    ARMADA_LEASE_CONNECTOR
+    ARMADA_IGNORE_TOUCH_DEVICE
 )
 
 for var in "${vars[@]}"; do
