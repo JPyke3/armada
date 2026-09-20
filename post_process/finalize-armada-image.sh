@@ -38,6 +38,10 @@ fi
 mkdir -p "${WORK}/mnt"
 sudo mount "${ESP}" "${WORK}/mnt"
 
+sudo mkdir -p "${WORK}/mnt/armada"
+printf 'ARMADA_BOOT_BACKEND=abl\nARMADA_BOOT_CONTRACT=1\n' \
+    | sudo tee "${WORK}/mnt/armada/backend.conf" >/dev/null
+
 sudo mkdir -p "${WORK}/mnt/rocknix_abl"
 # One image serves all devices, so stage a self-contained folder per SoC.
 # vfat has no Unix ownership, so `cp -a` would error on chown under set -e.

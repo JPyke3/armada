@@ -12,6 +12,7 @@ Conflicts=final.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+ExecCondition=/usr/libexec/armada/armada-boot-backend is abl
 # Must outlast the lock wait plus a slow-card regen, or systemd kills it mid-write.
 TimeoutStopSec=180
 # Completes a regen that died in the previous shutdown. '-' is load-bearing: a
