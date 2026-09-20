@@ -30,8 +30,10 @@ EOF
 mkdir "${work}/bin"
 printf '#!/bin/sh\nexit 0\n' > "${work}/bin/findmnt"
 chmod +x "${work}/bin/findmnt"
+printf 'quiet armada.dtb=qcs8550-ayn-thor\n' > "${work}/cmdline"
 
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
+    CMDLINE=${work}/cmdline \
     BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 
@@ -40,11 +42,24 @@ cmp "${deploy}/usr/share/edk2/drivers/ext4aa64.efi" "${esp}/EFI/systemd/drivers/
 cmp "${deploy}/usr/lib/armada/efi/drivers/dtbloaderaa64.efi" "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
 grep -qx 'title Armada OS (Automatic)' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'title Armada OS (qcs8550-ayn-thor)' "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
+grep -q '^options armada.dtb=qcs8550-ayn-thor ' \
+    "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
     "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -qx 'title Armada OS (x1e-test)' "${boot}/loader/entries/ostree-1-dtb-x1e-test.conf"
+grep -q '^options armada.dtb=auto ' "${boot}/loader/entries/ostree-1.conf"
 ! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
+grep -qx 'qcs8550-ayn-thor' "${esp}/armada/device"
+grep -Fqx 'default *-dtb-qcs8550-ayn-thor' "${esp}/loader/loader.conf"
+
+printf 'quiet armada.dtb=auto\n' > "${work}/cmdline"
+PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
+    CMDLINE=${work}/cmdline \
+    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
+    ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
+! test -e "${esp}/armada/device"
+! grep -q '^default ' "${esp}/loader/loader.conf"
 
 unit=${ROOT}/system_files/usr/lib/systemd/system/armada-efi-sync.service
 grep -Fq 'ExecCondition=/usr/libexec/armada/armada-boot-backend is efi' "${unit}"
