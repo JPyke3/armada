@@ -30,6 +30,13 @@ sha256sum -c <<'EOF'
 1bb1feec68a13da18d581aa2c631798f86f6bc10b55d587b2dd31446a0f8a203  /usr/libexec/armada/gki/generate_gki_certificate.py
 EOF
 
+source /ctx/efi/release.env
+driver=/usr/lib/armada/efi/drivers/dtbloaderaa64.efi
+install -d "${driver%/*}"
+curl --connect-timeout 30 --retry 3 -fsSL -o "${driver}" \
+    "https://github.com/TravMurav/dtbloader/releases/download/${ARMADA_DTBLOADER_VERSION}/dtbloader.efi"
+echo "${ARMADA_DTBLOADER_SHA256}  ${driver}" | sha256sum -c -
+
 source /ctx/abl/release.env
 abl_releases=/ctx/abl/releases.tsv
 abl_archive=/tmp/rocknix-abl.tar.gz
