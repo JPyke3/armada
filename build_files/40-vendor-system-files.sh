@@ -111,6 +111,7 @@ systemctl enable armada-control.service
 systemctl enable armada-steamos-manager.service
 systemctl --global enable armada-steamos-manager.service
 systemctl enable armada-bootimg-sync.service
+systemctl enable armada-efi-sync.service
 systemctl enable armada-esp-rename.service
 systemctl enable armada-boot-hotkeys.service
 systemctl enable armada-flatpak-setup.service
