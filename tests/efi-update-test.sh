@@ -18,7 +18,7 @@ printf ext4 > "${deploy}/usr/share/edk2/drivers/ext4aa64.efi"
 printf dtbloader > "${deploy}/usr/lib/armada/efi/drivers/dtbloaderaa64.efi"
 printf thor > "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
 printf x1e > "${bootdir}/dtb/qcom/x1e-test.dtb"
-printf 'qcs8550-ayn-thor\nx1e-test\n' > "${deploy}/usr/lib/armada/supported-dtbs"
+printf 'qcs8550-ayn-thor\n' > "${deploy}/usr/lib/armada/supported-dtbs"
 cat > "${boot}/loader/entries/ostree-1.conf" <<EOF
 title old
 version 2
@@ -40,13 +40,14 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
 cmp "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
 cmp "${deploy}/usr/share/edk2/drivers/ext4aa64.efi" "${esp}/EFI/systemd/drivers/ext4aa64.efi"
 cmp "${deploy}/usr/lib/armada/efi/drivers/dtbloaderaa64.efi" "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
+cmp "${bootdir}/dtb/qcom/x1e-test.dtb" "${esp}/dtbloader/dtbs/qcom/x1e-test.dtb"
 grep -qx 'title Armada OS (Automatic)' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'title Armada OS (qcs8550-ayn-thor)' "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -q '^options armada.dtb=qcs8550-ayn-thor ' \
     "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
     "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
-grep -qx 'title Armada OS (x1e-test)' "${boot}/loader/entries/ostree-1-dtb-x1e-test.conf"
+! test -e "${boot}/loader/entries/ostree-1-dtb-x1e-test.conf"
 grep -q '^options armada.dtb=auto ' "${boot}/loader/entries/ostree-1.conf"
 ! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
