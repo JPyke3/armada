@@ -27,10 +27,13 @@ GIB = 1024**3
 ESP_SIZE, BOOT_SIZE, ROOT_MIN, ANDROID_MIN = 512 * MIB, GIB, 32 * GIB, 8 * GIB
 RESERVE = ESP_SIZE + BOOT_SIZE + ROOT_MIN + 64 * MIB
 ESP_TYPE = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
+XBOOTLDR_TYPE = "bc13c2ff-59e6-4262-a352-b275fd6f7172"
 LINUX_TYPE = "0fc63daf-8483-4772-8e79-3d69d8477de4"
 BTRFS_OPTS = "noatime,compress=zstd:1,discard=async"
 SELF = "/usr/libexec/armada/armada-installer"
 BOOTIMG = "/usr/libexec/armada/armada-bootimg-update"
+EFIUPDATE = "/usr/libexec/armada/armada-efi-update"
+BACKEND = "/usr/libexec/armada/armada-boot-backend"
 RECOVERY = ("To retry from SD, select SD as the boot source in ABL and re-run the installer. "
             "To abandon the internal installation, select UNINSTALL CFW in ABL.")
 
@@ -206,9 +209,12 @@ class Plan:
     userdata_end: int
     remove: tuple
     create: tuple
+    backend: str
 
     @classmethod
-    def make(cls, table, userdata_gib=None):
+    def make(cls, table, userdata_gib=None, backend="abl"):
+        if backend not in ("abl", "efi"):
+            raise Error("Unknown boot backend")
         userdata, tail = table.layout()
         sector = table.sector_size
         end = max(p.end for p in (userdata, *tail))
@@ -237,9 +243,9 @@ class Plan:
             raise Error("Not enough free GPT partition slots")
         esp_end, boot_end = start + ESP_SIZE // sector, start + (ESP_SIZE + BOOT_SIZE) // sector
         create = (Partition(numbers[0], start, esp_end, "ARMADA", ESP_TYPE),
-                  Partition(numbers[1], esp_end, boot_end, "ARMADA_BOOT", LINUX_TYPE),
+                  Partition(numbers[1], esp_end, boot_end, "ARMADA_BOOT", XBOOTLDR_TYPE if backend == "efi" else LINUX_TYPE),
                   Partition(numbers[2], boot_end, end, "ARMADA_ROOT", LINUX_TYPE))
-        return cls(table, operation, userdata, ud_end, tail, create)
+        return cls(table, operation, userdata, ud_end, tail, create, backend)
 
     def describe(self):
         if self.operation == "replace":
@@ -445,7 +451,14 @@ def base_kargs(directory=Path("/usr/lib/bootc/kargs.d")):
     return args
 
 
-def configure_deployment(target, source, uuids, kargs):
+def boot_backend():
+    backend = output(BACKEND)
+    if backend not in ("abl", "efi"):
+        raise Error("Cannot determine the boot backend")
+    return backend
+
+
+def configure_deployment(target, source, uuids, kargs, backend="abl"):
     Gio, OSTree = ostree_api()
     sysroot = OSTree.Sysroot.new(Gio.File.new_for_path(str(target)))
     sysroot.load(None)
@@ -456,8 +469,9 @@ def configure_deployment(target, source, uuids, kargs):
     if deployment.get_origin().get_string("origin", "container-image-reference") != source.origin.get_string("origin", "container-image-reference"):
         raise Error("Target update origin does not match the selected image")
     root = target / "ostree/deploy" / deployment.get_osname() / "deploy" / f"{source.checksum}.{deployment.get_deployserial()}"
+    boot_mount = "rw 0 2" if backend == "efi" else "ro 0 0"
     (root / "etc/fstab").write_text(
-        f"UUID={uuids['boot']} /boot auto ro 0 0\n"
+        f"UUID={uuids['boot']} /boot auto {boot_mount}\n"
         f"UUID={uuids['esp']} /boot/efi vfat umask=0077,shortname=winnt 0 2\n"
         f"UUID={uuids['root']} /var btrfs {BTRFS_OPTS},subvol=var 0 0\n"
         f"UUID={uuids['root']} /var/home btrfs {BTRFS_OPTS},subvol=home 0 0\n")
@@ -471,11 +485,15 @@ def configure_deployment(target, source, uuids, kargs):
         raise Error("Incomplete boot entry")
     if (target / pointers[0].split("=", 1)[1].lstrip("/")).resolve(strict=True) != root.resolve():
         raise Error("Boot entry does not reference the selected deployment")
-    linux, initrd = (fields[key] if fields[key].startswith("/boot/") else "/boot" + fields[key] for key in ("linux", "initrd"))
+    if backend == "abl":
+        linux, initrd = (fields[key] if fields[key].startswith("/boot/") else "/boot" + fields[key] for key in ("linux", "initrd"))
+    else:
+        linux, initrd = ("/" + fields[key].removeprefix("/boot/").lstrip("/") for key in ("linux", "initrd"))
     options = [f"root=UUID={uuids['root']}", "rw", f"boot=UUID={uuids['boot']}", *kargs,
                f"rootflags=subvol=root,{BTRFS_OPTS}", pointers[0]]
-    entry.write_text(f"title Armada\nversion {fields.get('version', '1')}\noptions {' '.join(options)}\n"
-                     f"linux {linux}\ninitrd {initrd}\nfdtdir {Path(linux).parent}/dtb\n")
+    fdtdir = f"fdtdir {Path(linux).parent}/dtb\n" if backend == "abl" else ""
+    entry.write_text(f"title Armada OS\nversion {fields.get('version', '1')}\noptions {' '.join(options)}\n"
+                     f"linux {linux}\ninitrd {initrd}\n{fdtdir}")
 
 
 class Installation:
@@ -526,6 +544,7 @@ class Installation:
 
     def deploy(self, source, kargs):
         plan = self.plan
+        backend = plan.backend
         esp, boot, root = [part_node(plan.table.device, p.number) for p in plan.create]
         self.work = Path(tempfile.mkdtemp(prefix="armada-install.", dir="/run"))
         target, top = self.work / "target", self.work / "top"
@@ -540,7 +559,7 @@ class Installation:
         self.mount(root, target / "var", BTRFS_OPTS + ",subvol=var")
         self.mount(root, target / "var/home", BTRFS_OPTS + ",subvol=home")
         run("ostree", "admin", "init-fs", "--modern", target)
-        run("mkfs.vfat", "-F", "16", "-S", plan.table.sector_size, "-s", 16384 // plan.table.sector_size, "-n", "ARMADA", esp)
+        run("mkfs.vfat", "-F", "32" if backend == "efi" else "16", "-S", plan.table.sector_size, "-s", 16384 // plan.table.sector_size, "-n", "ARMADA", esp)
         run("mkfs.ext4", "-F", "-L", "boot", boot)
         self.mount(boot, target / "boot")
         self.mount(esp, target / "boot/efi")
@@ -550,7 +569,7 @@ class Installation:
             raise Error("Could not determine filesystem UUIDs")
         repo = target / "ostree/repo"
         run("ostree", "config", f"--repo={repo}", "set", "sysroot.bootloader", "none")
-        run("ostree", "config", f"--repo={repo}", "set", "sysroot.bootprefix", "true")
+        run("ostree", "config", f"--repo={repo}", "set", "sysroot.bootprefix", "false" if backend == "efi" else "true")
         run("ostree", "config", f"--repo={repo}", "set", "sysroot.readonly", "true")
         run("ostree", "admin", "os-init", f"--sysroot={target}", "default")
         print("Copying and verifying the selected image...", flush=True)
@@ -562,13 +581,22 @@ class Installation:
         run("ostree", "checkout", f"--repo={repo}", "--subpath=/var", source.checksum, seed)
         run("cp", "-a", f"{seed}/.", f"{target}/var/")
         shutil.rmtree(seed)
-        configure_deployment(target, source, uuids, kargs)
-        print("Writing the internal boot image...", flush=True)
-        with tempfile.TemporaryDirectory(prefix=".armada-bootimg.", dir=target) as scratch:
-            run(BOOTIMG, env=dict(os.environ, TMPDIR=scratch, ESP=str(target / "boot/efi"),
-                                 BOOTROOT=str(target / "boot"), SYSROOT=str(target)))
-        if not (target / "boot/efi/KERNEL").is_file() or not (target / "boot/efi/KERNEL").stat().st_size:
-            raise Error("The internal boot image was not created")
+        configure_deployment(target, source, uuids, kargs, backend)
+        marker = target / "boot/efi/armada/backend.conf"
+        marker.parent.mkdir(exist_ok=True)
+        marker.write_text(f"ARMADA_BOOT_BACKEND={backend}\nARMADA_BOOT_CONTRACT=1\n")
+        env = dict(os.environ, ESP=str(target / "boot/efi"), BOOTROOT=str(target / "boot"), SYSROOT=str(target))
+        if backend == "abl":
+            print("Writing the internal boot image...", flush=True)
+            with tempfile.TemporaryDirectory(prefix=".armada-bootimg.", dir=target) as scratch:
+                run(BOOTIMG, env=dict(env, TMPDIR=scratch))
+            result = target / "boot/efi/KERNEL"
+        else:
+            print("Writing the internal EFI files...", flush=True)
+            run(EFIUPDATE, env=env)
+            result = target / "boot/efi/EFI/BOOT/BOOTAA64.EFI"
+        if not result.is_file() or not result.stat().st_size:
+            raise Error("The internal boot files were not created")
 
     def recovery(self):
         android = " Android userdata and earlier partitions are unchanged." if self.plan.operation == "replace" else ""
@@ -616,7 +644,7 @@ def inhibit_sleep():
 
 def require_commands():
     needed = ["sfdisk", "lsblk", "findmnt", "partprobe", "udevadm", "dd", "systemd-inhibit", "mount"]
-    needed += ["btrfs", "mkfs.btrfs", "mkfs.ext4", "mkfs.vfat", "umount", "ostree", "blkid", "cp", BOOTIMG]
+    needed += ["btrfs", "mkfs.btrfs", "mkfs.ext4", "mkfs.vfat", "umount", "ostree", "blkid", "cp", BOOTIMG, EFIUPDATE, BACKEND]
     missing = [name for name in needed if not shutil.which(name)]
     if missing:
         raise Error("Missing required tools: " + ", ".join(missing))
@@ -658,7 +686,7 @@ def execute(args):
                 size = int(input(f"New Android size in GiB ({info['android_min_gib']}..{info['android_max_gib']}): "))
             except ValueError as error:
                 raise Error("Android size must be an integer") from error
-        plan = Plan.make(table, size)
+        plan = Plan.make(table, size, boot_backend())
         print(plan.describe(), flush=True)
         if not args.assume_yes and input("Proceed? [y/N]: ").strip().lower() not in ("y", "yes"):
             raise Cancelled()

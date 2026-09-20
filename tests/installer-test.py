@@ -112,6 +112,12 @@ class PlanningTests(unittest.TestCase):
         self.assertIn(f"uuid={plan.userdata.uuid}", plan.script())
         self.assertIn(f"/dev/sda17: start={plan.userdata.start}, size={plan.userdata_end-plan.userdata.start}", plan.script())
 
+    def test_efi_uses_xbootldr_partition_type(self):
+        plan = i.Plan.make(table(), 16, "efi")
+        self.assertEqual(plan.backend, "efi")
+        self.assertEqual(plan.create[1].type, i.XBOOTLDR_TYPE)
+        self.assertEqual(i.Plan.make(table(), 16).create[1].type, i.LINUX_TYPE)
+
     def test_replacement_reuses_slots_immediately_after_userdata(self):
         t = table(["ARMADA", "ARMADA_BOOT", "ARMADA_ROOT"])
         t = replace(t, parts=tuple(replace(p, number=p.number+17) if p.number < 4 else p for p in t.parts))
@@ -354,7 +360,7 @@ class ExecutionTests(unittest.TestCase):
         def bad_source():
             raise i.Error("missing source layer")
             yield
-        with tempfile.TemporaryFile() as lock, patch.object(i.os, "geteuid", return_value=0), patch.object(i, "discover_device", return_value="/dev/sda"), patch.object(i, "read_table", return_value=table()), patch.object(i, "require_commands"), patch.object(i, "refuse_boot_disk"), patch.object(i, "require_idle"), patch.object(i, "open", return_value=lock, create=True), patch.object(i, "inhibit_sleep", return_value=nullcontext()), patch.object(i, "base_kargs", return_value=[]), patch.object(i, "locked_source", bad_source), patch.object(i.Installation, "partition") as partition:
+        with tempfile.TemporaryFile() as lock, patch.object(i.os, "geteuid", return_value=0), patch.object(i, "discover_device", return_value="/dev/sda"), patch.object(i, "read_table", return_value=table()), patch.object(i, "require_commands"), patch.object(i, "refuse_boot_disk"), patch.object(i, "require_idle"), patch.object(i, "open", return_value=lock, create=True), patch.object(i, "inhibit_sleep", return_value=nullcontext()), patch.object(i, "base_kargs", return_value=[]), patch.object(i, "boot_backend", return_value="abl"), patch.object(i, "locked_source", bad_source), patch.object(i.Installation, "partition") as partition:
             with self.assertRaisesRegex(i.Error, "missing source layer"):
                 i.execute(args)
         partition.assert_not_called()
@@ -383,6 +389,32 @@ class ExecutionTests(unittest.TestCase):
                 self.assertTrue(any(call.args[0] == i.BOOTIMG for call in run.call_args_list))
                 self.assertTrue(any(call.args[-2:] == ("sysroot.readonly", "true") for call in run.call_args_list))
                 self.assertEqual(list((job.work / "target").glob(".armada-bootimg.*")), [])
+                job.close()
+
+    def test_efi_install_uses_efi_updater(self):
+        job = i.Installation(i.Plan.make(table(), 16, "efi"))
+        source = Mock(checksum="selected")
+        source.origin.to_data.return_value = ("origin", 6)
+        mkdtemp = tempfile.mkdtemp
+        with tempfile.TemporaryDirectory() as work:
+            def temporary(*args, **kwargs):
+                if kwargs.get("dir") == "/run":
+                    kwargs["dir"] = work
+                return mkdtemp(*args, **kwargs)
+            def command(*args, **kwargs):
+                if args[:2] == ("ostree", "checkout"):
+                    args[-1].mkdir()
+                elif args[0] == i.EFIUPDATE:
+                    esp = Path(kwargs["env"]["ESP"])
+                    self.assertIn("ARMADA_BOOT_BACKEND=efi", (esp / "armada/backend.conf").read_text())
+                    (esp / "EFI/BOOT").mkdir(parents=True)
+                    (esp / "EFI/BOOT/BOOTAA64.EFI").write_bytes(b"systemd-boot")
+            with patch.object(i.tempfile, "mkdtemp", side_effect=temporary), patch.object(i, "output", return_value="valid-uuid"), patch.object(i, "run", side_effect=command) as run, patch.object(i, "configure_deployment"):
+                job.deploy(source, [])
+                self.assertTrue(any(call.args[0] == i.EFIUPDATE for call in run.call_args_list))
+                self.assertTrue(any(call.args[-2:] == ("sysroot.bootprefix", "false") for call in run.call_args_list))
+                self.assertTrue(any(call.args[:3] == ("mkfs.vfat", "-F", "32") for call in run.call_args_list))
+                self.assertEqual(job.plan.create[1].type, i.XBOOTLDR_TYPE)
                 job.close()
 
     def test_interrupted_mount_is_still_cleaned_up(self):
