@@ -3,6 +3,8 @@
 # the BLS default on failure while preserving the updater's failure status.
 set -uo pipefail
 
+/usr/libexec/armada/armada-boot-backend is abl || exit 0
+
 if /usr/libexec/armada/armada-bootimg-update; then
     exit 0
 else
