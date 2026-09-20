@@ -156,15 +156,20 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           images=(output/armada-*.img.gz)
-          if [ "${#images[@]}" -ne 1 ] || [ ! -s "${images[0]}" ]; then
-            echo "::error::Expected exactly one nonempty disk image in output/."
+          if [ "${#images[@]}" -ne 2 ]; then
+            echo "::error::Expected ABL and EFI disk images in output/."
             exit 1
           fi
-          image="${images[0]}"
-          filename="${image##*/}"
-          # Use the basename so sha256sum -c works beside the downloaded image.
-          (cd output && sha256sum "${filename}" > "${filename}.sha256")
-          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          for image in "${images[@]}"; do
+            [ -s "${image}" ] || exit 1
+            filename="${image##*/}"
+            (cd output && sha256sum "${filename}" > "${filename}.sha256")
+          done
+          abl=(output/armada-*-abl.img.gz)
+          efi=(output/armada-*-efi.img.gz)
+          [ "${#abl[@]}" -eq 1 ] && [ "${#efi[@]}" -eq 1 ]
+          echo "image=${abl[0]}" >> "${GITHUB_OUTPUT}"
+          echo "efi=${efi[0]}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload disk image to GitHub artifacts
         if: ${{ !inputs.publish_r2 }}
