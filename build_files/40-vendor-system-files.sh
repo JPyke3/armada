@@ -36,6 +36,7 @@ install -d "${driver%/*}"
 curl --connect-timeout 30 --retry 3 -fsSL -o "${driver}" \
     "https://github.com/TravMurav/dtbloader/releases/download/${ARMADA_DTBLOADER_VERSION}/dtbloader.efi"
 echo "${ARMADA_DTBLOADER_SHA256}  ${driver}" | sha256sum -c -
+install -Dpm 0644 /ctx/efi/LICENSE.dtbloader /usr/share/licenses/armada-dtbloader/LICENSE
 
 source /ctx/abl/release.env
 abl_releases=/ctx/abl/releases.tsv
