@@ -13,7 +13,7 @@ grep -Fq 'EFI/systemd/drivers/dtbloaderaa64.efi' "${FINALIZE}"
 grep -Fq 'ARMADA_BOOT_BACKEND=efi' "${FINALIZE}"
 grep -Fq 'bootprefix=false' "${FINALIZE}"
 grep -Fq 'supported-dtbs' "${FINALIZE}"
-! grep -Fq 'subvol=root' "${FINALIZE}"
+grep -Fq 'subvol=root' "${FINALIZE}"
 
 recipe=$(sed -n '/^build-armada-image /,/^\[group/p' "${ROOT}/Justfile")
 grep -Fq 'disk-abl.raw' <<< "${recipe}"
