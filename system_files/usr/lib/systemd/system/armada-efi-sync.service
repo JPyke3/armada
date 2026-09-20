@@ -1,0 +1,19 @@
+[Unit]
+Description=Sync the EFI boot files for the next deployment
+ConditionPathExists=/run/ostree-booted
+DefaultDependencies=no
+RequiresMountsFor=/sysroot /boot /boot/efi
+After=local-fs.target systemd-journal-flush.service
+Before=ostree-finalize-staged.service final.target
+Conflicts=final.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecCondition=/usr/libexec/armada/armada-boot-backend is efi
+ExecStart=-/usr/libexec/armada/armada-efi-update
+ExecStop=/usr/libexec/armada/armada-efi-update
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target
