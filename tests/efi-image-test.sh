@@ -12,7 +12,7 @@ grep -Fq 'EFI/systemd/drivers/ext4aa64.efi' "${FINALIZE}"
 grep -Fq 'EFI/systemd/drivers/dtbloaderaa64.efi' "${FINALIZE}"
 grep -Fq 'ARMADA_BOOT_BACKEND=efi' "${FINALIZE}"
 grep -Fq 'bootprefix=false' "${FINALIZE}"
-grep -Fq 'title Armada OS (AYN Thor)' "${FINALIZE}"
+grep -Fq 'supported-dtbs' "${FINALIZE}"
 
 recipe=$(sed -n '/^build-armada-image /,/^\[group/p' "${ROOT}/Justfile")
 grep -Fq 'disk-abl.raw' <<< "${recipe}"

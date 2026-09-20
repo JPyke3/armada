@@ -3,6 +3,8 @@ set -euxo pipefail
 
 RAW=${1:-output/image/disk-efi.raw}
 OUT=${OUT:-output/armada-$(TZ=America/New_York date +%Y%m%d)-efi.img.gz}
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+DTB_LIST=${ROOT}/system_files/usr/lib/armada/supported-dtbs
 WORK=$(mktemp -d)
 LOOP=$(sudo losetup -fP --show "${RAW}")
 trap 'sudo umount "${WORK}/esp" "${WORK}/boot" "${WORK}/root" 2>/dev/null || true; sudo losetup -d "${LOOP}" 2>/dev/null || true; rm -rf "${WORK}"' EXIT
@@ -39,24 +41,26 @@ for entry in "${entries[@]}"; do
         -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \
         -e '/^fdtdir /d' "${entry}"
     linux=$(sudo sed -n 's/^linux //p' "${entry}" | head -1)
-    thor=${entry%.conf}-ayn-thor.conf
-    sudo cp "${entry}" "${thor}"
-    sudo sed -i 's|^title .*|title Armada OS (AYN Thor)|' "${thor}"
-    printf 'devicetree %s/dtb/qcom/qcs8550-ayn-thor.dtb\n' "$(dirname "${linux}")" \
-        | sudo tee -a "${thor}" >/dev/null
+    while read -r name; do
+        sudo test -f "${WORK}/boot$(dirname "${linux}")/dtb/qcom/${name}.dtb"
+        device=${entry%.conf}-dtb-${name}.conf
+        sudo cp "${entry}" "${device}"
+        sudo sed -i "s|^title .*|title Armada OS (${name})|" "${device}"
+        printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" \
+            | sudo tee -a "${device}" >/dev/null
+    done < "${DTB_LIST}"
 done
 
 linux=$(sudo sed -n 's/^linux //p' "${entries[0]}" | head -1)
 dtbs=${WORK}/boot/$(dirname "${linux}")/dtb/qcom
-sudo test -f "${dtbs}/qcs8550-ayn-thor.dtb"
-sudo cp "${dtbs}"/*.dtb "${WORK}/esp/dtbloader/dtbs/qcom/"
+while read -r name; do sudo cp "${dtbs}/${name}.dtb" "${WORK}/esp/dtbloader/dtbs/qcom/"; done < "${DTB_LIST}"
 
 repo=${WORK}/root/ostree/repo/config
 sudo sed -i 's/^bootprefix=.*/bootprefix=false/' "${repo}"
 sudo grep -qx 'bootprefix=false' "${repo}"
 sudo sync
 sudo umount "${WORK}/esp" "${WORK}/boot" "${WORK}/root"
-sudo fatlabel "${LOOP}p1" ARMADA_EFI
+sudo fatlabel "${LOOP}p1" ARMADA
 sudo losetup -d "${LOOP}"
 trap 'rm -rf "${WORK}"' EXIT
 
