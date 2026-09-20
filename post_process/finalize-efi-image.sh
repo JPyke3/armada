@@ -13,7 +13,7 @@ mkdir -p "${WORK}"/{esp,boot,root}
 sudo sfdisk --part-type "${LOOP}" 2 bc13c2ff-59e6-4262-a352-b275fd6f7172
 sudo mount "${LOOP}p1" "${WORK}/esp"
 sudo mount "${LOOP}p2" "${WORK}/boot"
-sudo mount "${LOOP}p3" "${WORK}/root"
+sudo mount -o subvol=root "${LOOP}p3" "${WORK}/root"
 
 deploy=$(sudo find "${WORK}/root/ostree/deploy/default/deploy" -mindepth 1 -maxdepth 1 -type d | head -1)
 usr=${deploy}/usr
