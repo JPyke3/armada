@@ -78,6 +78,10 @@ along with the upstream-derived packages it ships (see
 [`packages/`](packages/README.md)). The development recipes require
 [just](https://just.systems/) and [Podman](https://podman.io/):
 
+`just build-armada-image` produces an `-abl.img.gz` image for supported Android
+bootloader devices and an `-efi.img.gz` image for UEFI/systemd-boot devices.
+Both contain the same bootc OS and update stream.
+
 ```console
 $ just check     # Run the test suite and check recipe formatting
 $ just packages  # Build the packages the image consumes (slow from cold)
