@@ -55,7 +55,8 @@ done
 
 linux=$(sudo sed -n 's/^linux //p' "${entries[0]}" | head -1)
 dtbs=${WORK}/boot/$(dirname "${linux}")/dtb/qcom
-while read -r name; do sudo cp "${dtbs}/${name}.dtb" "${WORK}/esp/dtbloader/dtbs/qcom/"; done < "${DTB_LIST}"
+sudo find "${dtbs}" -maxdepth 1 -type f -name '*.dtb' \
+    -exec cp -t "${WORK}/esp/dtbloader/dtbs/qcom" {} +
 
 repo=${WORK}/root/ostree/repo/config
 sudo sed -i 's/^bootprefix=.*/bootprefix=false/' "${repo}"
