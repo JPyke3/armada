@@ -63,7 +63,10 @@ copy "${dtbloader}" "${ESP}/EFI/systemd/drivers/dtbloaderaa64.efi"
 
 linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
 dtbs=${BOOTROOT}$(dirname "${linux}")/dtb/qcom
-while read -r name; do copy "${dtbs}/${name}.dtb" "${ESP}/dtbloader/dtbs/qcom/${name}.dtb"; done < "${dtb_list}"
+for dtb in "${dtbs}"/*.dtb; do
+    [ -f "${dtb}" ]
+    copy "${dtb}" "${ESP}/dtbloader/dtbs/qcom/${dtb##*/}"
+done
 
 rm -f "${BOOTROOT}/loader/entries"/*-dtb-*.conf
 for file in "${entries[@]}"; do
