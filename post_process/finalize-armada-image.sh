@@ -5,7 +5,7 @@ set -euxo pipefail
 
 RAW_IMAGE="${1:-output/raw/disk.raw}"
 source "$(dirname "${BASH_SOURCE[0]}")/../abl/release.env"
-OUT="${OUT:-output/armada-$(TZ='America/New_York' date +%Y%m%d).img.gz}"
+OUT="${OUT:-output/armada-$(TZ='America/New_York' date +%Y%m%d)-abl.img.gz}"
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ABL_RELEASES="${REPO_ROOT}/abl/releases.tsv"
 ABL_CATALOG_TOOL="${REPO_ROOT}/system_files/usr/lib/armada/abl-version"

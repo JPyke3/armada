@@ -283,7 +283,7 @@ build-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_build
 [group('Build Virtual Machine Image')]
 build-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "iso" "disk_config/iso.toml")
 
-# Output: ./output/armada-<version>.img.gz  (version = container label, date.sha)
+# Output: ./output/armada-<version>-{abl,efi}.img.gz
 [group('Armada')]
 build-armada-image $target_image=("localhost/" + image_name) $tag=default_tag: (build-raw target_image tag)
     #!/usr/bin/env bash
@@ -291,12 +291,16 @@ build-armada-image $target_image=("localhost/" + image_name) $tag=default_tag: (
     echo "Finalizing the freshly-built raw image..."
     version=$(podman inspect -t image "${target_image}:${tag}" \
                 | jq -r '.[0].Config.Labels["org.opencontainers.image.version"] // empty')
-    ./post_process/make-bootimg.sh output/image/disk.raw
-    # Name from the container's version so a flashed device traces to its build.
+    mv output/image/disk.raw output/image/disk-efi.raw
+    cp --reflink=auto output/image/disk-efi.raw output/image/disk-abl.raw
     if [[ -n "$version" && "$version" != unknown ]]; then
-        export OUT="output/armada-${version}.img.gz"
+        basename="armada-${version}"
+    else
+        basename="armada-$(TZ=America/New_York date +%Y%m%d)"
     fi
-    ./post_process/finalize-armada-image.sh output/image/disk.raw
+    ./post_process/make-bootimg.sh output/image/disk-abl.raw
+    OUT="output/${basename}-abl.img.gz" ./post_process/finalize-armada-image.sh output/image/disk-abl.raw
+    OUT="output/${basename}-efi.img.gz" ./post_process/finalize-efi-image.sh output/image/disk-efi.raw
 
 [group('Build Virtual Machine Image')]
 rebuild-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "qcow2" "disk_config/disk.toml")
