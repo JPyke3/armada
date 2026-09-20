@@ -39,13 +39,15 @@ mapfile -t entries < <(sudo find "${WORK}/boot" -path '*/loader/entries/*.conf' 
 for entry in "${entries[@]}"; do
     sudo sed -i -e 's|^title .*|title Armada OS (Automatic)|' \
         -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \
-        -e '/^fdtdir /d' "${entry}"
+        -e '/^fdtdir /d' -e 's/ armada\.dtb=[^ ]*//g' \
+        -e 's|^options |options armada.dtb=auto |' "${entry}"
     linux=$(sudo sed -n 's/^linux //p' "${entry}" | head -1)
     while read -r name; do
         sudo test -f "${WORK}/boot$(dirname "${linux}")/dtb/qcom/${name}.dtb"
         device=${entry%.conf}-dtb-${name}.conf
         sudo cp "${entry}" "${device}"
-        sudo sed -i "s|^title .*|title Armada OS (${name})|" "${device}"
+        sudo sed -i -e "s|^title .*|title Armada OS (${name})|" \
+            -e "s|armada.dtb=auto|armada.dtb=${name}|" "${device}"
         printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" \
             | sudo tee -a "${device}" >/dev/null
     done < "${DTB_LIST}"
