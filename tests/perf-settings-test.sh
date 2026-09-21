@@ -352,6 +352,14 @@ check("device-env MANGMI profile",
       mangmi.get("ARMADA_SOC_CLASS") == "SM8250" and
       mangmi.get("ARMADA_GAMESCOPE_FAKE_OUTPUT_MM") == "120x90" and
       mangmi.get("ARMADA_IP_TARGETS") == "ds5")
+rg55g1 = run_device_env("Anbernic RG 55G1")
+check("device-env RG55G1 profile",
+      rg55g1.get("ARMADA_DEVICE_ID") == "anbernic-rg55g1" and
+      rg55g1.get("ARMADA_SOC_CLASS") == "SM4450" and
+      rg55g1.get("ARMADA_PANEL_ORIENTATION") == "right" and
+      rg55g1.get("ARMADA_LITTLE_CORES") == "0-5" and
+      rg55g1.get("ARMADA_BIG_CORES") == "6-7" and
+      rg55g1.get("ARMADA_PRIME_CORES") == "6-7")
 
 # --- armada-powerd: config parsing ------------------------------------------
 powerd = load_script("armada-powerd")
