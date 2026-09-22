@@ -413,7 +413,7 @@ class ExecutionTests(unittest.TestCase):
                 job.deploy(source, [])
                 self.assertTrue(any(call.args[0] == i.EFIUPDATE for call in run.call_args_list))
                 self.assertTrue(any(call.args[-2:] == ("sysroot.bootprefix", "false") for call in run.call_args_list))
-                self.assertTrue(any(call.args[:3] == ("mkfs.vfat", "-F", "32") for call in run.call_args_list))
+                self.assertTrue(any(call.args[:7] == ("mkfs.vfat", "-F", "32", "-S", 4096, "-s", 1) for call in run.call_args_list))
                 self.assertEqual(job.plan.create[1].type, i.XBOOTLDR_TYPE)
                 job.close()
 
