@@ -14,6 +14,7 @@ grep -Fq 'ARMADA_BOOT_BACKEND=efi' "${FINALIZE}"
 grep -Fq 'bootprefix=false' "${FINALIZE}"
 grep -Fq 'supported-dtbs' "${FINALIZE}"
 grep -Fq 'subvol=root' "${FINALIZE}"
+grep -Fq 'find -L "${WORK}/boot/loader/entries"' "${FINALIZE}"
 
 recipe=$(sed -n '/^build-armada-image /,/^\[group/p' "${ROOT}/Justfile")
 grep -Fq 'disk-abl.raw' <<< "${recipe}"

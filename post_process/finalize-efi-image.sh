@@ -34,7 +34,7 @@ printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' \
     | sudo tee "${WORK}/esp/armada/backend.conf" >/dev/null
 printf 'timeout 5\neditor no\n' | sudo tee "${WORK}/esp/loader/loader.conf" >/dev/null
 
-mapfile -t entries < <(sudo find "${WORK}/boot" -path '*/loader/entries/*.conf' -type f)
+mapfile -t entries < <(sudo find -L "${WORK}/boot/loader/entries" -maxdepth 1 -name '*.conf' -type f)
 [ "${#entries[@]}" -gt 0 ]
 for entry in "${entries[@]}"; do
     sudo sed -i -e 's|^title .*|title Armada OS (Automatic)|' \
