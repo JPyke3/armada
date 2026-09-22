@@ -559,7 +559,8 @@ class Installation:
         self.mount(root, target / "var", BTRFS_OPTS + ",subvol=var")
         self.mount(root, target / "var/home", BTRFS_OPTS + ",subvol=home")
         run("ostree", "admin", "init-fs", "--modern", target)
-        run("mkfs.vfat", "-F", "32" if backend == "efi" else "16", "-S", plan.table.sector_size, "-s", 16384 // plan.table.sector_size, "-n", "ARMADA", esp)
+        cluster = 4096 if backend == "efi" else 16384
+        run("mkfs.vfat", "-F", "32" if backend == "efi" else "16", "-S", plan.table.sector_size, "-s", cluster // plan.table.sector_size, "-n", "ARMADA", esp)
         run("mkfs.ext4", "-F", "-L", "boot", boot)
         self.mount(boot, target / "boot")
         self.mount(esp, target / "boot/efi")
