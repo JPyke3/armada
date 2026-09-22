@@ -298,9 +298,17 @@ build-armada-image $target_image=("localhost/" + image_name) $tag=default_tag: (
     else
         basename="armada-$(TZ=America/New_York date +%Y%m%d)"
     fi
-    ./post_process/make-bootimg.sh output/image/disk-abl.raw
-    OUT="output/${basename}-abl.img.gz" ./post_process/finalize-armada-image.sh output/image/disk-abl.raw
-    OUT="output/${basename}-efi.img.gz" ./post_process/finalize-efi-image.sh output/image/disk-efi.raw
+    (
+        ./post_process/make-bootimg.sh output/image/disk-abl.raw
+        OUT="output/${basename}-abl.img.gz" ./post_process/finalize-armada-image.sh output/image/disk-abl.raw
+    ) &
+    abl_pid=$!
+    OUT="output/${basename}-efi.img.gz" ./post_process/finalize-efi-image.sh output/image/disk-efi.raw &
+    efi_pid=$!
+    status=0
+    wait "${abl_pid}" || status=1
+    wait "${efi_pid}" || status=1
+    exit "${status}"
 
 [group('Build Virtual Machine Image')]
 rebuild-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "qcow2" "disk_config/disk.toml")
