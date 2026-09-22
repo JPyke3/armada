@@ -30,7 +30,7 @@ for file in "${loader}" "${ext4}" "${dtbloader}"; do [ -s "${file}" ]; done
 
 choice=
 for arg in $(cat "${CMDLINE}" 2>/dev/null || true); do
-    case "${arg}" in armada.dtb=*) choice=${arg#armada.dtb=} ;; esac
+    case "${arg}" in armada.device=*) choice=${arg#armada.device=} ;; esac
 done
 selected=
 if [ -z "${choice}" ] && [ -s "${ESP}/armada/device" ]; then
@@ -72,13 +72,13 @@ rm -f "${BOOTROOT}/loader/entries"/*-dtb-*.conf
 for file in "${entries[@]}"; do
     linux=$(sed -n 's/^linux //p' "${file}" | head -1)
     sed -e 's|^title .*|title Armada OS (Automatic)|' -e '/^fdtdir /d' \
-        -e 's/ armada\.dtb=[^ ]*//g' -e 's|^options |options armada.dtb=auto |' \
+        -e 's/ armada\.device=[^ ]*//g' -e 's|^options |options armada.device=auto |' \
         "${file}" > "${file}.new"
     mv -f "${file}.new" "${file}"
     while read -r name; do
         device=${file%.conf}-dtb-${name}.conf
         sed -e "s|^title .*|title Armada OS (${name})|" \
-            -e "s|armada.dtb=auto|armada.dtb=${name}|" "${file}" > "${device}.new"
+            -e "s|armada.device=auto|armada.device=${name}|" "${file}" > "${device}.new"
         printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" >> "${device}.new"
         mv -f "${device}.new" "${device}"
     done < "${dtb_list}"

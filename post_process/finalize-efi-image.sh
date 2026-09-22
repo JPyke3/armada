@@ -17,6 +17,8 @@ sudo mount -o subvol=root "${LOOP}p3" "${WORK}/root"
 
 deploy=$(sudo find "${WORK}/root/ostree/deploy/default/deploy" -mindepth 1 -maxdepth 1 -type d | head -1)
 usr=${deploy}/usr
+sudo sed -i '\| /boot |s| auto ro | auto rw |' "${deploy}/etc/fstab"
+sudo grep -q ' /boot auto rw ' "${deploy}/etc/fstab"
 loader=${usr}/lib/systemd/boot/efi/systemd-bootaa64.efi
 ext4=${usr}/share/edk2/drivers/ext4aa64.efi
 dtbloader=${usr}/lib/armada/efi/drivers/dtbloaderaa64.efi
@@ -39,15 +41,15 @@ mapfile -t entries < <(sudo find -L "${WORK}/boot/loader/entries" -maxdepth 1 -n
 for entry in "${entries[@]}"; do
     sudo sed -i -e 's|^title .*|title Armada OS (Automatic)|' \
         -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \
-        -e '/^fdtdir /d' -e 's/ armada\.dtb=[^ ]*//g' \
-        -e 's|^options |options armada.dtb=auto |' "${entry}"
+        -e '/^fdtdir /d' -e 's/ armada\.device=[^ ]*//g' \
+        -e 's|^options |options armada.device=auto |' "${entry}"
     linux=$(sudo sed -n 's/^linux //p' "${entry}" | head -1)
     while read -r name; do
         sudo test -f "${WORK}/boot$(dirname "${linux}")/dtb/qcom/${name}.dtb"
         device=${entry%.conf}-dtb-${name}.conf
         sudo cp "${entry}" "${device}"
         sudo sed -i -e "s|^title .*|title Armada OS (${name})|" \
-            -e "s|armada.dtb=auto|armada.dtb=${name}|" "${device}"
+            -e "s|armada.device=auto|armada.device=${name}|" "${device}"
         printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" \
             | sudo tee -a "${device}" >/dev/null
     done < "${DTB_LIST}"
