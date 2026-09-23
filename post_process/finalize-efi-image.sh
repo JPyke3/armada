@@ -6,6 +6,7 @@ OUT=${OUT:-output/armada-$(TZ=America/New_York date +%Y%m%d)-efi.img.gz}
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 DTB_LIST=${ROOT}/system_files/usr/lib/armada/supported-dtbs
 WORK=$(mktemp -d)
+command -v fdtget >/dev/null
 LOOP=$(sudo losetup -fP --show "${RAW}")
 trap 'sudo umount "${WORK}/esp" "${WORK}/boot" "${WORK}/root" 2>/dev/null || true; sudo losetup -d "${LOOP}" 2>/dev/null || true; rm -rf "${WORK}"' EXIT
 
@@ -45,10 +46,12 @@ for entry in "${entries[@]}"; do
         -e 's|^options |options armada.device=auto |' "${entry}"
     linux=$(sudo sed -n 's/^linux //p' "${entry}" | head -1)
     while read -r name; do
-        sudo test -f "${WORK}/boot$(dirname "${linux}")/dtb/qcom/${name}.dtb"
+        dtb=${WORK}/boot$(dirname "${linux}")/dtb/qcom/${name}.dtb
+        sudo test -f "${dtb}"
+        model=$(sudo fdtget -t s "${dtb}" / model)
         device=${entry%.conf}-dtb-${name}.conf
         sudo cp "${entry}" "${device}"
-        sudo sed -i -e "s|^title .*|title Armada OS (${name})|" \
+        sudo sed -i -e "s|^title .*|title Armada OS - ${model}|" \
             -e "s|armada.device=auto|armada.device=${name}|" "${device}"
         printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" \
             | sudo tee -a "${device}" >/dev/null

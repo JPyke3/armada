@@ -45,7 +45,9 @@ mapfile -t entries < <(find "${BOOTROOT}/loader/entries" -maxdepth 1 -name '*.co
 for file in "${entries[@]}"; do
     linux=$(sed -n 's/^linux //p' "${file}" | head -1)
     while read -r name; do
-        [ -f "${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb" ]
+        dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
+        [ -f "${dtb}" ]
+        model=$(fdtget -t s "${dtb}" / model)
     done < "${dtb_list}"
 done
 
@@ -77,8 +79,10 @@ for file in "${entries[@]}"; do
         "${file}" > "${file}.new"
     mv -f "${file}.new" "${file}"
     while read -r name; do
+        dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
+        model=$(fdtget -t s "${dtb}" / model)
         device=${file%.conf}-dtb-${name}.conf
-        sed -e "s|^title .*|title Armada OS (${name})|" \
+        sed -e "s|^title .*|title Armada OS - ${model}|" \
             -e "s|armada.device=auto|armada.device=${name}|" "${file}" > "${device}.new"
         printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" >> "${device}.new"
         mv -f "${device}.new" "${device}"

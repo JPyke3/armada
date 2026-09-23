@@ -31,7 +31,8 @@ fdtdir /ostree/default-test/dtb
 EOF
 mkdir "${work}/bin"
 printf '#!/bin/sh\nexit 0\n' > "${work}/bin/findmnt"
-chmod +x "${work}/bin/findmnt"
+printf '#!/bin/sh\nprintf "AYN Thor\\n"\n' > "${work}/bin/fdtget"
+chmod +x "${work}/bin/findmnt" "${work}/bin/fdtget"
 printf 'quiet armada.device=qcs8550-ayn-thor\n' > "${work}/cmdline"
 
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
@@ -48,7 +49,7 @@ cmp "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb" \
     "${esp}/dtbloader/dtbs/qcom/qcs8550-ayn-thor.dtb"
 cmp "${bootdir}/dtb/qcom/x1e-test.dtb" "${esp}/dtbloader/dtbs/qcom/x1e-test.dtb"
 grep -qx 'title Armada OS (Automatic)' "${boot}/loader/entries/ostree-1.conf"
-grep -qx 'title Armada OS (qcs8550-ayn-thor)' "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
+grep -qx 'title Armada OS - AYN Thor' "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -q '^options armada.device=qcs8550-ayn-thor ' \
     "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
