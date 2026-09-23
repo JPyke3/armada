@@ -49,6 +49,7 @@ dnf5 -y install --setopt=install_weak_deps=False \
     xdg-terminal-exec \
     desktop-file-utils \
     btrfs-progs \
+    dtc \
     edk2-ext4 \
     systemd-boot-unsigned \
     parted \
