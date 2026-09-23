@@ -4,6 +4,8 @@ mod backend;
 mod config;
 mod controller;
 mod correction;
+#[path = "helpers/rgb-saturation.helper.rs"]
+mod rgb_saturation_helper;
 mod runtime;
 mod state;
 
