@@ -23,9 +23,8 @@ done
 deploy=$(realpath -e "${SYSROOT%/}${ostree}")
 loader=${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi
 ext4=${deploy}/usr/share/edk2/drivers/ext4aa64.efi
-dtbloader=${deploy}/usr/lib/armada/efi/drivers/dtbloaderaa64.efi
 dtb_list=${deploy}/usr/lib/armada/supported-dtbs
-for file in "${loader}" "${ext4}" "${dtbloader}"; do [ -s "${file}" ]; done
+for file in "${loader}" "${ext4}"; do [ -s "${file}" ]; done
 [ -s "${dtb_list}" ]
 
 choice=
@@ -59,14 +58,7 @@ copy() {
 copy "${loader}" "${ESP}/EFI/BOOT/BOOTAA64.EFI"
 copy "${loader}" "${ESP}/EFI/systemd/systemd-bootaa64.efi"
 copy "${ext4}" "${ESP}/EFI/systemd/drivers/ext4aa64.efi"
-copy "${dtbloader}" "${ESP}/EFI/systemd/drivers/dtbloaderaa64.efi"
-
-linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
-dtbs=${BOOTROOT}$(dirname "${linux}")/dtb/qcom
-for dtb in "${dtbs}"/*.dtb; do
-    [ -f "${dtb}" ]
-    copy "${dtb}" "${ESP}/dtbloader/dtbs/qcom/${dtb##*/}"
-done
+rm -f "${ESP}/EFI/systemd/drivers/dtbloaderaa64.efi"
 
 rm -f "${BOOTROOT}/loader/entries"/*-dtb-*.conf
 for file in "${entries[@]}"; do
@@ -91,6 +83,6 @@ if [ -n "${selected}" ]; then
     printf 'timeout 5\neditor no\ndefault *-dtb-%s\n' "${selected}" > "${ESP}/loader/loader.conf"
 else
     rm -f "${ESP}/armada/device"
-    printf 'timeout 5\neditor no\n' > "${ESP}/loader/loader.conf"
+    printf 'timeout menu-force\neditor no\n' > "${ESP}/loader/loader.conf"
 fi
 sync
