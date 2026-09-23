@@ -31,12 +31,12 @@ sha256sum -c <<'EOF'
 EOF
 
 source /ctx/efi/release.env
-driver=/usr/lib/armada/efi/drivers/dtbloaderaa64.efi
+driver=/usr/lib/armada/efi/drivers/adtbloaderaa64.efi
 install -d "${driver%/*}"
 curl --connect-timeout 30 --retry 3 -fsSL -o "${driver}" \
-    "https://github.com/TravMurav/dtbloader/releases/download/${ARMADA_DTBLOADER_VERSION}/dtbloader.efi"
-echo "${ARMADA_DTBLOADER_SHA256}  ${driver}" | sha256sum -c -
-install -Dpm 0644 /ctx/efi/LICENSE.dtbloader /usr/share/licenses/armada-dtbloader/LICENSE
+    "https://github.com/armada-os/adtbloader/releases/download/${ARMADA_ADTBLOADER_VERSION}/adtbloader.efi"
+echo "${ARMADA_ADTBLOADER_SHA256}  ${driver}" | sha256sum -c -
+install -Dpm 0644 /ctx/efi/LICENSE.dtbloader /usr/share/licenses/armada-adtbloader/LICENSE
 
 source /ctx/abl/release.env
 abl_releases=/ctx/abl/releases.tsv

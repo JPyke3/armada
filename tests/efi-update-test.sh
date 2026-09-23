@@ -11,12 +11,13 @@ sysroot=${work}/sysroot
 deploy=${sysroot}/ostree/deploy/default/deploy/test.0
 bootdir=${boot}/ostree/default-test
 mkdir -p "${esp}/armada" "${boot}/loader/entries" "${deploy}/usr/lib/systemd/boot/efi" \
-    "${deploy}/usr/share/edk2/drivers" "${deploy}/usr/lib/armada" "${bootdir}/dtb/qcom"
+    "${deploy}/usr/share/edk2/drivers" "${deploy}/usr/lib/armada/efi/drivers" "${bootdir}/dtb/qcom"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${esp}/armada/backend.conf"
 mkdir -p "${esp}/EFI/systemd/drivers"
 printf stale > "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
 printf loader > "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi"
 printf ext4 > "${deploy}/usr/share/edk2/drivers/ext4aa64.efi"
+printf adtbloader > "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi"
 printf thor > "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
 printf x1e > "${bootdir}/dtb/qcom/x1e-test.dtb"
 printf 'qcs8550-ayn-thor\n' > "${deploy}/usr/lib/armada/supported-dtbs"
@@ -40,7 +41,12 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
 
 cmp "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
 cmp "${deploy}/usr/share/edk2/drivers/ext4aa64.efi" "${esp}/EFI/systemd/drivers/ext4aa64.efi"
+cmp "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi" \
+    "${esp}/EFI/systemd/drivers/adtbloaderaa64.efi"
 ! test -e "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
+cmp "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb" \
+    "${esp}/dtbloader/dtbs/qcom/qcs8550-ayn-thor.dtb"
+cmp "${bootdir}/dtb/qcom/x1e-test.dtb" "${esp}/dtbloader/dtbs/qcom/x1e-test.dtb"
 grep -qx 'title Armada OS (Automatic)' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'title Armada OS (qcs8550-ayn-thor)' "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -q '^options armada.device=qcs8550-ayn-thor ' \
@@ -61,7 +67,7 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 ! test -e "${esp}/armada/device"
 ! grep -q '^default ' "${esp}/loader/loader.conf"
-grep -Fxq 'timeout menu-force' "${esp}/loader/loader.conf"
+grep -Fxq 'timeout 5' "${esp}/loader/loader.conf"
 
 unit=${ROOT}/system_files/usr/lib/systemd/system/armada-efi-sync.service
 grep -Fq 'ExecCondition=/usr/libexec/armada/armada-boot-backend is efi' "${unit}"
