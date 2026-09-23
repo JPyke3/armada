@@ -21,20 +21,17 @@ sudo sed -i '\| /boot |s| auto ro | auto rw |' "${deploy}/etc/fstab"
 sudo grep -q ' /boot auto rw ' "${deploy}/etc/fstab"
 loader=${usr}/lib/systemd/boot/efi/systemd-bootaa64.efi
 ext4=${usr}/share/edk2/drivers/ext4aa64.efi
-dtbloader=${usr}/lib/armada/efi/drivers/dtbloaderaa64.efi
 sudo test -s "${loader}"
 sudo test -s "${ext4}"
-sudo test -s "${dtbloader}"
 
 sudo mkdir -p "${WORK}/esp/EFI/BOOT" "${WORK}/esp/EFI/systemd/drivers" \
-    "${WORK}/esp/armada" "${WORK}/esp/loader" "${WORK}/esp/dtbloader/dtbs/qcom"
+    "${WORK}/esp/armada" "${WORK}/esp/loader"
 sudo cp "${loader}" "${WORK}/esp/EFI/BOOT/BOOTAA64.EFI"
 sudo cp "${loader}" "${WORK}/esp/EFI/systemd/systemd-bootaa64.efi"
 sudo cp "${ext4}" "${WORK}/esp/EFI/systemd/drivers/ext4aa64.efi"
-sudo cp "${dtbloader}" "${WORK}/esp/EFI/systemd/drivers/dtbloaderaa64.efi"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' \
     | sudo tee "${WORK}/esp/armada/backend.conf" >/dev/null
-printf 'timeout 5\neditor no\n' | sudo tee "${WORK}/esp/loader/loader.conf" >/dev/null
+printf 'timeout menu-force\neditor no\n' | sudo tee "${WORK}/esp/loader/loader.conf" >/dev/null
 
 mapfile -t entries < <(sudo find -L "${WORK}/boot/loader/entries" -maxdepth 1 -name '*.conf' -type f)
 [ "${#entries[@]}" -gt 0 ]
@@ -54,11 +51,6 @@ for entry in "${entries[@]}"; do
             | sudo tee -a "${device}" >/dev/null
     done < "${DTB_LIST}"
 done
-
-linux=$(sudo sed -n 's/^linux //p' "${entries[0]}" | head -1)
-dtbs=${WORK}/boot/$(dirname "${linux}")/dtb/qcom
-sudo find "${dtbs}" -maxdepth 1 -type f -name '*.dtb' \
-    -exec cp -t "${WORK}/esp/dtbloader/dtbs/qcom" {} +
 
 repo=${WORK}/root/ostree/repo/config
 sudo sed -i 's/^bootprefix=.*/bootprefix=false/' "${repo}"
