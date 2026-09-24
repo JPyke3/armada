@@ -53,6 +53,7 @@ done
 
 copy() {
     mkdir -p "$(dirname "$2")"
+    cmp -s "$1" "$2" && return 0
     cp -f "$1" "$2.new"
     sync "$2.new"
     mv -f "$2.new" "$2"
@@ -89,7 +90,19 @@ for file in "${entries[@]}"; do
     done < "${dtb_list}"
 done
 
-mkdir -p "${ESP}/armada" "${ESP}/loader"
+mkdir -p "${ESP}/armada" "${ESP}/loader/entries" "${ESP}/ostree"
+for file in "${ESP}/ostree"/*; do
+    [ ! -e "${file}" ] || [ -e "${BOOTROOT}/ostree/${file##*/}" ] || rm -rf "${file}"
+done
+while IFS= read -r -d '' file; do
+    copy "${file}" "${ESP}/${file#"${BOOTROOT}/"}"
+done < <(find "${BOOTROOT}/ostree" -type f -print0)
+for file in "${BOOTROOT}/loader/entries"/*.conf; do
+    copy "${file}" "${ESP}/loader/entries/${file##*/}"
+done
+for file in "${ESP}/loader/entries"/*.conf; do
+    [ ! -e "${file}" ] || [ -e "${BOOTROOT}/loader/entries/${file##*/}" ] || rm -f "${file}"
+done
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${ESP}/armada/backend.conf"
 if [ -n "${selected}" ]; then
     printf '%s\n' "${selected}" > "${ESP}/armada/device"

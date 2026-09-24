@@ -20,6 +20,10 @@ printf ext4 > "${deploy}/usr/share/edk2/drivers/ext4aa64.efi"
 printf adtbloader > "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi"
 printf thor > "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
 printf x1e > "${bootdir}/dtb/qcom/x1e-test.dtb"
+printf kernel > "${bootdir}/vmlinuz"
+printf initrd > "${bootdir}/initramfs"
+mkdir -p "${esp}/ostree/stale" "${esp}/loader/entries"
+printf stale > "${esp}/loader/entries/stale.conf"
 printf 'qcs8550-ayn-thor\n' > "${deploy}/usr/lib/armada/supported-dtbs"
 cat > "${boot}/loader/entries/ostree-1.conf" <<EOF
 title old
@@ -60,6 +64,13 @@ grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
 grep -qx 'qcs8550-ayn-thor' "${esp}/armada/device"
 grep -Fqx 'default *-dtb-qcs8550-ayn-thor' "${esp}/loader/loader.conf"
+cmp "${bootdir}/vmlinuz" "${esp}/ostree/default-test/vmlinuz"
+cmp "${bootdir}/initramfs" "${esp}/ostree/default-test/initramfs"
+cmp "${boot}/loader/entries/ostree-1.conf" "${esp}/loader/entries/ostree-1.conf"
+cmp "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf" \
+    "${esp}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
+! test -e "${esp}/ostree/stale"
+! test -e "${esp}/loader/entries/stale.conf"
 
 printf 'quiet armada.device=auto\n' > "${work}/cmdline"
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
