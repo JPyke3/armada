@@ -62,6 +62,9 @@ linux=$(sudo sed -n 's/^linux //p' "${entries[0]}" | head -1)
 dtbs=${WORK}/boot/$(dirname "${linux}")/dtb/qcom
 sudo find "${dtbs}" -maxdepth 1 -type f -name '*.dtb' \
     -exec cp -t "${WORK}/esp/dtbloader/dtbs/qcom" {} +
+sudo mkdir -p "${WORK}/esp/loader/entries" "${WORK}/esp/ostree"
+sudo cp -f "${WORK}/boot/loader/entries"/*.conf "${WORK}/esp/loader/entries/"
+sudo cp -rf "${WORK}/boot/ostree/." "${WORK}/esp/ostree/"
 
 repo=${WORK}/root/ostree/repo/config
 sudo sed -i 's/^bootprefix=.*/bootprefix=false/' "${repo}"
