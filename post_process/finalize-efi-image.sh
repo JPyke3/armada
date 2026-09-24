@@ -33,6 +33,7 @@ sudo cp "${loader}" "${WORK}/esp/EFI/BOOT/BOOTAA64.EFI"
 sudo cp "${loader}" "${WORK}/esp/EFI/systemd/systemd-bootaa64.efi"
 sudo cp "${ext4}" "${WORK}/esp/EFI/systemd/drivers/ext4aa64.efi"
 sudo cp "${adtbloader}" "${WORK}/esp/EFI/systemd/drivers/adtbloaderaa64.efi"
+sudo cp -r "${ROOT}/efi/adtbloader" "${WORK}/esp/adtbloader"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' \
     | sudo tee "${WORK}/esp/armada/backend.conf" >/dev/null
 printf 'timeout 5\neditor no\n' | sudo tee "${WORK}/esp/loader/loader.conf" >/dev/null
