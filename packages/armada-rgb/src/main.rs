@@ -21,8 +21,8 @@ enum Command {
     Set {
         #[arg(long)]
         color: String,
-        #[arg(long, default_value_t = 100)]
-        saturation: u8,
+        #[arg(long)]
+        saturation: Option<u8>,
         #[arg(long)]
         brightness: u8,
         /// RGB correction trigger and channel reductions.
@@ -58,8 +58,13 @@ fn main() -> Result<()> {
             let mut config: LightingConfig = controller.get()?;
             config.enabled = true;
             config.color = color;
-            config.saturation = saturation;
+
+            if let Some(saturation) = saturation {
+                config.saturation = saturation;
+            }
+
             config.brightness = brightness;
+
             if let Some(correction) = correction {
                 config.correction = Some(correction);
             }

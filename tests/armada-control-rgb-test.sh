@@ -58,6 +58,18 @@ assert commands.pop() == [
     "40",
 ]
 
+# Legacy callers that omit saturation preserve the saved value in armada-rgb.
+state = control.action_set_rgb({"enabled": True, "color": "a1b2c3", "brightness": 40})
+assert state["color"] == "A1B2C3"
+assert commands.pop() == [
+    control.RGB_TOOL,
+    "set",
+    "--color",
+    "a1b2c3",
+    "--brightness",
+    "40",
+]
+
 control.action_set_rgb({"enabled": False})
 assert commands.pop() == [control.RGB_TOOL, "off"]
 
