@@ -40,11 +40,22 @@ printf 'timeout 5\neditor no\n' | sudo tee "${WORK}/esp/loader/loader.conf" >/de
 
 mapfile -t entries < <(sudo find -L "${WORK}/boot/loader/entries" -maxdepth 1 -name '*.conf' -type f)
 [ "${#entries[@]}" -gt 0 ]
+default_entry=$(
+    for candidate in "${entries[@]}"; do
+        version=$(sudo sed -n 's/^version //p' "${candidate}" | head -1)
+        printf '%s\t%s\n' "${version:-0}" "${candidate}"
+    done | sort -rn | head -1 | cut -f2
+)
 for entry in "${entries[@]}"; do
     sudo sed -i -e 's|^title .*|title Armada OS (Automatic)|' \
         -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \
-        -e '/^fdtdir /d' -e 's/ armada\.device=[^ ]*//g' \
+        -e '/^fdtdir /d' -e '/^architecture armada-hidden$/d' \
+        -e 's/ armada\.device=[^ ]*//g' \
         -e 's|^options |options armada.device=auto |' "${entry}"
+    if [ "${entry}" != "${default_entry}" ]; then
+        printf 'architecture armada-hidden\n' | sudo tee -a "${entry}" >/dev/null
+        continue
+    fi
     linux=$(sudo sed -n 's/^linux //p' "${entry}" | head -1)
     while read -r name; do
         dtb=${WORK}/boot$(dirname "${linux}")/dtb/qcom/${name}.dtb
@@ -59,7 +70,7 @@ for entry in "${entries[@]}"; do
     done < "${DTB_LIST}"
 done
 
-linux=$(sudo sed -n 's/^linux //p' "${entries[0]}" | head -1)
+linux=$(sudo sed -n 's/^linux //p' "${default_entry}" | head -1)
 dtbs=${WORK}/boot/$(dirname "${linux}")/dtb/qcom
 sudo find "${dtbs}" -maxdepth 1 -type f -name '*.dtb' \
     -exec cp -t "${WORK}/esp/dtbloader/dtbs/qcom" {} +

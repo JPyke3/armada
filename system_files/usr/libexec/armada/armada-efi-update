@@ -77,20 +77,47 @@ done
 rm -f "${BOOTROOT}/loader/entries"/*-dtb-*.conf
 for file in "${entries[@]}"; do
     linux=$(sed -n 's/^linux //p' "${file}" | head -1)
-    sed -e 's|^title .*|title Armada OS (Automatic)|' -e '/^fdtdir /d' \
-        -e 's/ armada\.device=[^ ]*//g' -e 's|^options |options armada.device=auto |' \
-        "${file}" > "${file}.new"
-    mv -f "${file}.new" "${file}"
-    while read -r name; do
-        dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
-        [ -f "${dtb}" ] || continue
-        model=$(fdtget -t s "${dtb}" / model)
-        device=${file%.conf}-dtb-${name}.conf
-        sed -e "s|^title .*|title Armada OS - ${model}|" \
-            -e "s|armada.device=auto|armada.device=${name}|" "${file}" > "${device}.new"
-        printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" >> "${device}.new"
-        mv -f "${device}.new" "${device}"
-    done < "${dtb_list}"
+    dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${selected:-}.dtb
+
+    # Keep suppressed deployments as BLS files so a later device selection can
+    # reconsider them. systemd-boot hides entries for a foreign architecture.
+    if [ -n "${selected}" ] && [ -f "${dtb}" ]; then
+        if [ "${file}" = "${entry}" ]; then
+            title='Armada OS'
+        else
+            title='Armada OS (Rollback)'
+        fi
+        sed -e "s|^title .*|title ${title}|" -e '/^fdtdir /d' -e '/^devicetree /d' \
+            -e '/^architecture armada-hidden$/d' -e 's/ armada\.device=[^ ]*//g' \
+            -e "s|^options |options armada.device=${selected} |" \
+            "${file}" > "${file}.new"
+        printf 'devicetree %s/dtb/qcom/%s.dtb\n' \
+            "$(dirname "${linux}")" "${selected}" >> "${file}.new"
+        mv -f "${file}.new" "${file}"
+    elif [ -z "${selected}" ] && [ "${file}" = "${entry}" ]; then
+        sed -e 's|^title .*|title Armada OS (Automatic)|' -e '/^fdtdir /d' \
+            -e '/^devicetree /d' -e '/^architecture armada-hidden$/d' \
+            -e 's/ armada\.device=[^ ]*//g' -e 's|^options |options armada.device=auto |' \
+            "${file}" > "${file}.new"
+        mv -f "${file}.new" "${file}"
+        while read -r name; do
+            dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
+            [ -f "${dtb}" ] || continue
+            model=$(fdtget -t s "${dtb}" / model)
+            device=${file%.conf}-dtb-${name}.conf
+            sed -e "s|^title .*|title Armada OS - ${model}|" \
+                -e "s|armada.device=auto|armada.device=${name}|" "${file}" > "${device}.new"
+            printf 'devicetree %s/dtb/qcom/%s.dtb\n' \
+                "$(dirname "${linux}")" "${name}" >> "${device}.new"
+            mv -f "${device}.new" "${device}"
+        done < "${dtb_list}"
+    else
+        # Do not offer rollback until a device is known, or when that rollback
+        # deployment does not contain the selected device's DTB.
+        sed -e '/^architecture armada-hidden$/d' "${file}" > "${file}.new"
+        printf 'architecture armada-hidden\n' >> "${file}.new"
+        mv -f "${file}.new" "${file}"
+    fi
 done
 
 mkdir -p "${ESP}/armada" "${ESP}/loader/entries" "${ESP}/ostree"
@@ -109,9 +136,9 @@ done
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${ESP}/armada/backend.conf"
 if [ -n "${selected}" ]; then
     printf '%s\n' "${selected}" > "${ESP}/armada/device"
-    printf 'timeout menu-hidden\neditor no\ndefault *-dtb-%s\n' "${selected}" > "${ESP}/loader/loader.conf"
+    printf 'timeout menu-hidden\neditor no\n' > "${ESP}/loader/loader.conf"
 else
     rm -f "${ESP}/armada/device"
-    printf 'timeout menu-hidden\neditor no\n' > "${ESP}/loader/loader.conf"
+    printf 'timeout 5\neditor no\n' > "${ESP}/loader/loader.conf"
 fi
 sync

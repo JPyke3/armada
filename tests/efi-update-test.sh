@@ -61,7 +61,7 @@ case "$3" in
 esac
 EOF
 chmod +x "${work}/bin/findmnt" "${work}/bin/fdtget"
-printf 'quiet armada.device=qcs8550-ayn-thor\n' > "${work}/cmdline"
+printf 'quiet armada.device=auto\n' > "${work}/cmdline"
 
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
@@ -87,16 +87,15 @@ grep -q '^options armada.device=qcs8550-ayn-thor ' \
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
     "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 ! test -e "${boot}/loader/entries/ostree-1-dtb-x1e-test.conf"
-grep -qx 'title Armada OS (Automatic)' "${boot}/loader/entries/ostree-rollback.conf"
-grep -qx 'title Armada OS - AYN Thor' \
-    "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-ayn-thor.conf"
+grep -qx 'architecture armada-hidden' "${boot}/loader/entries/ostree-rollback.conf"
+! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-ayn-thor.conf"
 ! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-new-device.conf"
 grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-1.conf"
 ! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
-grep -qx 'qcs8550-ayn-thor' "${esp}/armada/device"
-grep -Fqx 'timeout menu-hidden' "${esp}/loader/loader.conf"
-grep -Fqx 'default *-dtb-qcs8550-ayn-thor' "${esp}/loader/loader.conf"
+! test -e "${esp}/armada/device"
+grep -Fqx 'timeout 5' "${esp}/loader/loader.conf"
+! grep -q '^default ' "${esp}/loader/loader.conf"
 cmp "${bootdir}/vmlinuz" "${esp}/ostree/default-test/vmlinuz"
 cmp "${bootdir}/initramfs" "${esp}/ostree/default-test/initramfs"
 cmp "${boot}/loader/entries/ostree-1.conf" "${esp}/loader/entries/ostree-1.conf"
@@ -105,14 +104,33 @@ cmp "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf" \
 ! test -e "${esp}/ostree/stale"
 ! test -e "${esp}/loader/entries/stale.conf"
 
-printf 'quiet armada.device=auto\n' > "${work}/cmdline"
+printf 'quiet armada.device=qcs8550-ayn-thor\n' > "${work}/cmdline"
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
     BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
-! test -e "${esp}/armada/device"
+grep -qx 'qcs8550-ayn-thor' "${esp}/armada/device"
 ! grep -q '^default ' "${esp}/loader/loader.conf"
 grep -Fxq 'timeout menu-hidden' "${esp}/loader/loader.conf"
+grep -qx 'title Armada OS' "${boot}/loader/entries/ostree-1.conf"
+grep -q '^options armada.device=qcs8550-ayn-thor ' "${boot}/loader/entries/ostree-1.conf"
+grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
+    "${boot}/loader/entries/ostree-1.conf"
+grep -qx 'title Armada OS (Rollback)' "${boot}/loader/entries/ostree-rollback.conf"
+grep -q '^options armada.device=qcs8550-ayn-thor ' \
+    "${boot}/loader/entries/ostree-rollback.conf"
+grep -qx 'devicetree /ostree/default-rollback/dtb/qcom/qcs8550-ayn-thor.dtb' \
+    "${boot}/loader/entries/ostree-rollback.conf"
+! grep -q '^architecture armada-hidden$' "${boot}/loader/entries/ostree-rollback.conf"
+! compgen -G "${boot}/loader/entries/*-dtb-*.conf" >/dev/null
+
+rm "${rollback_bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
+PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
+    CMDLINE=${work}/cmdline \
+    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
+    ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
+grep -qx 'architecture armada-hidden' "${boot}/loader/entries/ostree-rollback.conf"
+grep -qx 'architecture armada-hidden' "${esp}/loader/entries/ostree-rollback.conf"
 
 rm "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
 if PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
