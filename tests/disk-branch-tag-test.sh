@@ -12,7 +12,7 @@ import textwrap
 
 workflow = Path(sys.argv[1]).read_text()
 step = workflow.split('      - name: Resolve container tag\n', 1)[1]
-script = textwrap.dedent(step.split('        run: |\n', 1)[1].split('\n\n  build:', 1)[0])
+script = textwrap.dedent(step.split('        run: |\n', 1)[1].split('\n\n      - name:', 1)[0])
 Path(sys.argv[2]).write_text(script)
 PY
 

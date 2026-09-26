@@ -44,8 +44,11 @@ jobs:
   prepare:
     name: Prepare disk builds
     runs-on: ubuntu-24.04
+    permissions: {}
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      digest: ${{ steps.source.outputs.digest }}
+      revision: ${{ steps.source.outputs.revision }}
     steps:
       - name: Check R2 configuration
         if: inputs.publish_r2
@@ -60,6 +63,11 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Install container tools
+        run: |
+          set -euxo pipefail
+          command -v skopeo >/dev/null || { sudo apt-get update; sudo apt-get install -y skopeo; }
 
       - name: Resolve container tag
         id: tag
@@ -90,13 +98,37 @@ jobs:
           fi
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
 
+      - name: Resolve container source
+        id: source
+        env:
+          CONTAINER_TAG: ${{ steps.tag.outputs.tag }}
+          EXPECTED_DIGEST: ${{ inputs.image_digest }}
+          EXPECTED_REVISION: ${{ inputs.source_ref || github.sha }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:${CONTAINER_TAG}"
+          inspection=$(skopeo inspect --no-creds --override-arch arm64 "docker://${image}")
+          digest=$(jq -er '.Digest' <<< "${inspection}")
+          revision=$(jq -er '.Labels["org.opencontainers.image.revision"]' <<< "${inspection}")
+          if ! [[ "${digest}" =~ ^sha256:[a-f0-9]{64}$ && "${revision}" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "::error::Container has an invalid digest or source revision."
+            exit 1
+          fi
+          if [ -n "${EXPECTED_DIGEST}" ] && [ "${digest}" != "${EXPECTED_DIGEST}" ]; then
+            echo "::error::Container digest ${digest} does not match requested digest ${EXPECTED_DIGEST}."
+            exit 1
+          fi
+          if [ "${revision}" != "${EXPECTED_REVISION}" ]; then
+            echo "::error::Container revision ${revision} does not match source revision ${EXPECTED_REVISION}. Rebuild the container after rebasing."
+            exit 1
+          fi
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
+
   build:
     name: Build ${{ matrix.label }} disk image
     needs: prepare
     runs-on: ubuntu-24.04-arm
-    outputs:
-      digest: ${{ steps.built_image.outputs.digest }}
-      revision: ${{ steps.built_image.outputs.revision }}
     strategy:
       fail-fast: false
       matrix:
@@ -107,7 +139,6 @@ jobs:
             label: EFI
     permissions:
       contents: read
-      packages: read
 
     steps:
       - name: Free build space
@@ -118,7 +149,8 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_ref || github.sha }}
+          ref: ${{ needs.prepare.outputs.revision }}
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
@@ -131,12 +163,9 @@ jobs:
       - name: Install just
         uses: ublue-os/just-action@30ab4659369934b65b655bf8d2fa4ddd6547d384 # v3
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-
       - name: Build ${{ matrix.label }} disk image
         env:
-          ARMADA_IMAGE_DIGEST: ${{ inputs.image_digest }}
+          ARMADA_IMAGE_DIGEST: ${{ needs.prepare.outputs.digest }}
         run: |
           set -euxo pipefail
           JUST_BIN=$(command -v just)
@@ -148,28 +177,6 @@ jobs:
             "${JUST_BIN}" build-armada-image "${IMAGE_REGISTRY}/${IMAGE_NAME}" \
             "${{ needs.prepare.outputs.tag }}" "${{ matrix.variant }}"
           sudo chown -R "$(id -u):$(id -g)" output
-
-      - name: Inspect disk source image
-        id: built_image
-        env:
-          EXPECTED_DIGEST: ${{ inputs.image_digest }}
-          CONTAINER_TAG: ${{ needs.prepare.outputs.tag }}
-          PUBLISH_R2: ${{ inputs.publish_r2 }}
-        run: |
-          set -euo pipefail
-          inspection=$(sudo podman image inspect "${IMAGE_REGISTRY}/${IMAGE_NAME}:${CONTAINER_TAG}")
-          digest=$(jq -er '.[0].Digest' <<< "${inspection}")
-          if [ -n "${EXPECTED_DIGEST}" ] && [ "${digest}" != "${EXPECTED_DIGEST}" ]; then
-            echo "::error::Built image digest ${digest} does not match requested digest ${EXPECTED_DIGEST}."
-            exit 1
-          fi
-          revision=$(jq -r '.[0].Config.Labels["org.opencontainers.image.revision"] // empty' <<< "${inspection}")
-          if [ "${PUBLISH_R2}" = true ] && ! [[ "${revision}" =~ ^[a-f0-9]{40}$ ]]; then
-            echo "::error::Container has no valid source revision label."
-            exit 1
-          fi
-          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
-          echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
 
       - name: Prepare ${{ matrix.label }} disk image upload
         env:
@@ -206,12 +213,12 @@ jobs:
     permissions:
       actions: read
       contents: read
-      packages: read
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_ref || github.sha }}
+          ref: ${{ needs.prepare.outputs.revision }}
+          persist-credentials: false
 
       - name: Download disk images
         env:
@@ -234,10 +241,8 @@ jobs:
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           CONTAINER_TAG: ${{ needs.prepare.outputs.tag }}
-          # Both matrix legs inspect the same pinned image, so their job outputs
-          # are identical regardless of which matrix leg GitHub records last.
-          CONTAINER_DIGEST: ${{ needs.build.outputs.digest }}
-          BUILD_COMMIT: ${{ needs.build.outputs.revision }}
+          CONTAINER_DIGEST: ${{ needs.prepare.outputs.digest }}
+          BUILD_COMMIT: ${{ needs.prepare.outputs.revision }}
         run: |
           set -euo pipefail
           shopt -s nullglob
