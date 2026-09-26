@@ -17,6 +17,9 @@ mkdir -p "${esp}/armada" "${boot}/loader/entries" "${deploy}/usr/lib/systemd/boo
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${esp}/armada/backend.conf"
 mkdir -p "${esp}/EFI/systemd/drivers"
 printf stale > "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
+mkdir -p "${esp}/dtbloader/dtbs/qcom"
+printf stale > "${esp}/dtbloader/dtbs/qcom/qcs8550-renamed-device.dtb"
+printf keep > "${esp}/dtbloader/dtbs/qcom/README"
 printf loader > "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi"
 printf ext4 > "${deploy}/usr/share/edk2/drivers/ext4aa64.efi"
 printf adtbloader > "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi"
@@ -73,6 +76,8 @@ cmp "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi" \
 cmp "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb" \
     "${esp}/dtbloader/dtbs/qcom/qcs8550-ayn-thor.dtb"
 cmp "${bootdir}/dtb/qcom/x1e-test.dtb" "${esp}/dtbloader/dtbs/qcom/x1e-test.dtb"
+! test -e "${esp}/dtbloader/dtbs/qcom/qcs8550-renamed-device.dtb"
+grep -Fxq keep "${esp}/dtbloader/dtbs/qcom/README"
 grep -qx 'title Armada OS (Automatic)' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'title Armada OS - AYN Thor' "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -qx 'title Armada OS - New Handheld' \

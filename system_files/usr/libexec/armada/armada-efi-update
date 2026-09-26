@@ -69,6 +69,10 @@ for dtb in "${dtbs}"/*.dtb; do
     [ -f "${dtb}" ]
     copy "${dtb}" "${ESP}/dtbloader/dtbs/qcom/${dtb##*/}"
 done
+for dtb in "${ESP}/dtbloader/dtbs/qcom"/*.dtb; do
+    [ -e "${dtb}" ] || continue
+    [ -f "${dtbs}/${dtb##*/}" ] || rm -f "${dtb}"
+done
 
 rm -f "${BOOTROOT}/loader/entries"/*-dtb-*.conf
 for file in "${entries[@]}"; do
