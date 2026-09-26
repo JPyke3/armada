@@ -3,22 +3,9 @@ name: Build disk image
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Known container tag/channel to build the flashable disk image from"
-        type: choice
-        options: [beta, stable, testing, staging]
-        default: beta
-      custom_tag:
-        description: "Optional custom container tag. Overrides the dropdown when set."
-        type: string
-        default: ""
   workflow_call:
     inputs:
       tag:
-        type: string
-        default: testing
-      custom_tag:
         type: string
         default: ""
       channel:
@@ -77,16 +64,28 @@ jobs:
       - name: Resolve container tag
         id: tag
         env:
-          CUSTOM_TAG: ${{ inputs.custom_tag }}
+          BUILD_REF: ${{ github.ref }}
           SELECTED_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          tag="${CUSTOM_TAG}"
+          tag="${SELECTED_TAG}"
           if [ -z "${tag}" ]; then
-            tag="${SELECTED_TAG}"
+            if [[ "${BUILD_REF}" != refs/heads/* ]]; then
+              echo "::error::Select a branch to build."
+              exit 1
+            fi
+            branch="${BUILD_REF#refs/heads/}"
+            case "${branch}" in
+              main) tag=testing ;;
+              staging) tag=staging ;;
+              testing|preview|beta|stable|latest)
+                echo "::error::Reserved release channel. Build main/staging or use Promote channel."
+                exit 1 ;;
+              *) tag="${branch}" ;;
+            esac
           fi
           if ! [[ "${tag}" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
-            echo "::error::Tag '${tag}' is not a valid container tag. Use letters, numbers, dots, underscores, or dashes."
+            echo "::error::Branch or explicit tag cannot be used as a container tag."
             exit 1
           fi
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
