@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Install the running Armada image alongside Android on internal storage."""
+"""Install the running Armada image on internal storage."""
 
 import argparse
 from contextlib import contextmanager
@@ -34,8 +34,6 @@ SELF = "/usr/libexec/armada/armada-installer"
 BOOTIMG = "/usr/libexec/armada/armada-bootimg-update"
 EFIUPDATE = "/usr/libexec/armada/armada-efi-update"
 BACKEND = "/usr/libexec/armada/armada-boot-backend"
-RECOVERY = ("To retry from SD, select SD as the boot source in ABL and re-run the installer. "
-            "To abandon the internal installation, select UNINSTALL CFW in ABL.")
 
 
 class Error(Exception):
@@ -50,6 +48,22 @@ class Interrupted(Error):
     def __init__(self, signum):
         self.signum = signum
         super().__init__(f"operation interrupted by signal {signum}")
+
+
+def boot_method(backend):
+    try:
+        return {"abl": "Android bootloader (ABL)", "efi": "UEFI (systemd-boot)"}[backend]
+    except KeyError as error:
+        raise Error("Unknown boot backend") from error
+
+
+def recovery_guidance(backend):
+    if backend == "abl":
+        return ("To retry from SD, select SD as the boot source in ABL and re-run the installer. "
+                "To abandon the internal installation, select UNINSTALL CFW in ABL.")
+    if backend == "efi":
+        return "To retry or recover, select the SD card in the UEFI boot menu and re-run the installer."
+    raise Error("Unknown boot backend")
 
 
 def run(*args, capture=False, check=True, input=None, **kwargs):
@@ -234,7 +248,9 @@ class Plan:
             start = ud_end
         end = end * sector // MIB * MIB // sector
         if (end - start) * sector < ESP_SIZE + BOOT_SIZE + ROOT_MIN:
-            raise Error("Space after userdata is too small; use UNINSTALL CFW in ABL, then install with a smaller Android size")
+            if backend == "abl":
+                raise Error("Space after userdata is too small; use UNINSTALL CFW in ABL, then install with a smaller Android size")
+            raise Error("Space after userdata is too small; remove the existing Armada partitions, then install with a smaller Android size")
         used = {p.number for p in table.parts if p not in tail}
         preferred = [userdata.number + offset for offset in (1, 2, 3)]
         free = [number for number in range(1, table.entry_count + 1) if number not in used]
@@ -248,11 +264,12 @@ class Plan:
         return cls(table, operation, userdata, ud_end, tail, create, backend)
 
     def describe(self):
+        method = boot_method(self.backend)
         if self.operation == "replace":
             names = ", ".join(f"{part_node(self.table.device, p.number)} ({p.name or 'unnamed'})" for p in self.remove)
-            return f"Erase ALL partitions after Android userdata on {self.table.device} ({names}) and install the running Armada image? All data in these partitions will be lost. Userdata and earlier partitions stay unchanged."
+            return f"Boot method: {method}\nErase ALL partitions after Android userdata on {self.table.device} ({names}) and install the running Armada image? All data in these partitions will be lost. Userdata and earlier partitions stay unchanged."
         size = (self.userdata_end - self.userdata.start) * self.table.sector_size // GIB
-        return f"Install the running Armada image and resize Android to {size} GiB? All Android user data will be erased."
+        return f"Boot method: {method}\nInstall the running Armada image and resize Android to {size} GiB? All Android user data will be erased."
 
     def script(self):
         table = self.table
@@ -601,7 +618,8 @@ class Installation:
 
     def recovery(self):
         android = " Android userdata and earlier partitions are unchanged." if self.plan.operation == "replace" else ""
-        return "Internal storage was modified." + android + " Do not boot internal storage. " + RECOVERY
+        return ("Internal storage was modified." + android + " Do not boot internal storage. "
+                + recovery_guidance(self.plan.backend))
 
 
 @contextmanager
@@ -666,7 +684,9 @@ def execute(args):
     table = read_table(device)
     if args.command == "detect":
         info = table.info()
-        info.update(device=device, table_fingerprint=table_fingerprint(table))
+        backend = boot_backend()
+        info.update(device=device, table_fingerprint=table_fingerprint(table),
+                    boot_backend=backend, boot_method=boot_method(backend))
         print(json.dumps(info) if args.json else "\n".join(f"{k}={v}" for k, v in info.items()))
         return
     if args.expect_table is not None and args.expect_table != table_fingerprint(table):
@@ -699,7 +719,7 @@ def execute(args):
                     job.partition()
                     job.deploy(source, kargs)
                     os.sync()
-        print("Install complete. Power off, remove the SD card, then power on.", flush=True)
+        print(f"Install complete for {boot_method(plan.backend)}. Power off, remove the SD card, then power on.", flush=True)
 
 
 
@@ -781,7 +801,7 @@ class Gui:
         if self.dialog("question", text, "--ok-label=" + label, "--cancel-label=Cancel").returncode:
             raise Cancelled()
 
-    def progress(self, command):
+    def progress(self, command, backend):
         fd, name = tempfile.mkstemp(prefix="armada-installer.", suffix=".log",
                                     dir="/run" if os.geteuid() == 0 else f"/run/user/{os.getuid()}")
         with os.fdopen(fd, "w") as stream:
@@ -802,22 +822,25 @@ class Gui:
                 log.seek(max(0, os.fstat(log.fileno()).st_size - 4096))
                 recent = "\n".join(log.read().decode(errors="replace").splitlines()[-12:])
             raise Error(f"Operation failed.\n\n{recent}\n\nFull log (available until reboot): {name}\n\n"
-                        "If internal storage was modified: " + RECOVERY)
+                        "If internal storage was modified: " + recovery_guidance(backend))
 
     def start(self):
         info = json.loads(output(*self.command, "detect", "--json"))
         self.command = ["sudo", SELF, "--device", info["device"]]
         mode = info["mode"]
+        backend = info["boot_backend"]
+        method = boot_method(backend)
         if mode == "toosmall":
             raise Error(f"Internal storage is too small. Armada needs about {info['needed_gib']} GiB alongside Android.")
         if mode == "fresh":
-            self.confirm("Install Armada alongside Android?\n\nInstalling Armada will factory-reset Android and erase all Android user data.", "Continue")
+            self.confirm(f"Install Armada alongside Android?\n\nBoot method: {method}\n\nInstalling Armada will factory-reset Android and erase all Android user data.", "Continue")
             minimum, maximum = info["android_min_gib"], info["android_max_gib"]
             gib = choose_android_size(minimum, maximum, info["android_current_gib"])
             self.confirm(f"Resize Android to {gib} GiB and install Armada? All Android user data will be erased.", "Install")
             command = ["install", "--userdata-gib", str(gib)]
         elif mode == "occupied":
             self.confirm("Replace the existing installation?\n\n"
+                         f"Boot method: {method}\n\n"
                          "Internal storage already has space in use alongside Android. Installing Armada will replace everything in that space.\n\n"
                          "All data in that space will be erased. Android and its user data will be kept.\n\n"
                          f"Partitions to erase: {info['partition_names']}",
@@ -825,14 +848,14 @@ class Gui:
             command = ["install"]
         else:
             raise Error("Unknown internal storage layout")
-        self.progress([*command, "--expect-table", info["table_fingerprint"]])
-        if self.dialog("question", "Operation complete. Power off and remove the SD card before booting internal storage.",
+        self.progress([*command, "--expect-table", info["table_fingerprint"]], backend)
+        if self.dialog("question", f"Operation complete for {method}. Power off and remove the SD card before booting internal storage.",
                        "--ok-label=Power off", "--cancel-label=Close").returncode == 0:
             run("sudo", "systemctl", "poweroff")
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__, epilog="To uninstall, select UNINSTALL CFW in ABL.")
+    parser = argparse.ArgumentParser(description=__doc__, epilog="Recovery steps depend on the active ABL or UEFI boot method.")
     parser.add_argument("--device", default=os.environ.get("ARMADA_INTERNAL_DEVICE"))
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("gui", help="desktop installer")
