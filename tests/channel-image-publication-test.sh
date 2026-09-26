@@ -97,11 +97,12 @@ for case in ['success', 'relative-urls', 'image-failure', 'checksum-failure', 'm
         skopeo.chmod(0o755)
         (root/'output').mkdir()
         version = f'20260908.{commit[:7]}'
-        filename = f'armada-{version}.img.gz'
-        content = b'disk image fixture'
-        digest = hashlib.sha256(content).hexdigest()
-        (root/'output'/filename).write_bytes(content)
-        (root/'output'/f'{filename}.sha256').write_text(f'{digest}  {filename}\n')
+        filenames = {kind: f'armada-{version}-{kind}.img.gz' for kind in ('abl', 'efi')}
+        contents = {kind: f'{kind} disk image fixture'.encode() for kind in filenames}
+        digests = {kind: hashlib.sha256(contents[kind]).hexdigest() for kind in filenames}
+        for kind, filename in filenames.items():
+            (root/'output'/filename).write_bytes(contents[kind])
+            (root/'output'/f'{filename}.sha256').write_text(f'{digests[kind]}  {filename}\n')
         remote = root/'remote/fixture'/channel
         remote.mkdir(parents=True)
         previous = json.dumps({'channel': channel, 'latest': 'old', 'builds': []}) + '\n'
@@ -111,7 +112,8 @@ for case in ['success', 'relative-urls', 'image-failure', 'checksum-failure', 'm
                    R2_PUBLIC_URL='' if case == 'relative-urls' else 'https://downloads.armadaos.dev/',
                    CONTAINER_TAG=tag, CONTAINER_DIGEST='sha256:'+'a'*64, BUILD_COMMIT=commit,
                    TEST_COMMIT_TITLE=title,
-                   DISK_IMAGE=f'output/{filename}', IMAGE_REGISTRY='ghcr.io/armada-os', IMAGE_NAME='armada',
+                   DISK_IMAGE=f'output/{filenames["abl"]}', EFI_IMAGE=f'output/{filenames["efi"]}',
+                   IMAGE_REGISTRY='ghcr.io/armada-os', IMAGE_NAME='armada',
                    GITHUB_OUTPUT=str(root/'outputs'), GITHUB_STEP_SUMMARY=str(root/'summary'))
         if case == 'invalid-channel':
             env['R2_PREFIX'] = 'release'
@@ -136,14 +138,18 @@ for case in ['success', 'relative-urls', 'image-failure', 'checksum-failure', 'm
             assert latest['container'] == {'reference': f'ghcr.io/armada-os/armada:{tag}', 'digest': 'sha256:'+'a'*64}
             assert latest['build_commit'] == commit
             assert latest['build_commit_title'] == title
-            assert latest['image']['filename'] == filename
-            assert latest['image']['key'] == f'{channel}/{filename}'
-            assert latest['checksum']['key'] == latest['image']['key'] + '.sha256'
-            assert latest['image']['sha256'] == digest and latest['image']['size'] == len(content)
             public = '' if case == 'relative-urls' else 'https://downloads.armadaos.dev'
-            assert latest['image']['url'] == f'{public}/{channel}/{filename}'
-            assert latest['checksum']['url'] == f'{public}/{channel}/{filename}.sha256'
-            subprocess.run(['sha256sum', '-c', filename+'.sha256'], cwd=remote, check=True, capture_output=True)
+            for kind, filename in filenames.items():
+                image = latest['images'][kind]
+                checksum = latest['checksums'][kind]
+                assert image['filename'] == filename and image['key'] == f'{channel}/{filename}'
+                assert checksum['key'] == image['key'] + '.sha256'
+                assert image['sha256'] == digests[kind] and image['size'] == len(contents[kind])
+                assert image['url'] == f'{public}/{channel}/{filename}'
+                assert checksum['url'] == f'{public}/{channel}/{filename}.sha256'
+                subprocess.run(['sha256sum', '-c', filename+'.sha256'], cwd=remote, check=True, capture_output=True)
+            assert latest['image'] == latest['images']['abl']
+            assert latest['checksum'] == latest['checksums']['abl']
         else:
             assert result.returncode != 0, case
             assert (remote/'builds.json').read_text() == previous, case

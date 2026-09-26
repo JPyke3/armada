@@ -1,0 +1,113 @@
+#!/bin/bash
+set -euo pipefail
+
+ESP=${ESP:-/boot/efi}
+BOOTROOT=${BOOTROOT:-/boot}
+SYSROOT=${SYSROOT:-/}
+BACKEND=${BACKEND:-/usr/libexec/armada/armada-boot-backend}
+ARGS_FILE=${ARGS_FILE:-/usr/lib/armada/bootimg-args}
+CMDLINE=${CMDLINE:-/proc/cmdline}
+
+ESP=${ESP} "${BACKEND}" is efi || exit 0
+findmnt -rn "${ESP}" >/dev/null
+. "${ARGS_FILE}"
+
+entry=$(armada_default_bls_entry "${BOOTROOT}")
+[ -n "${entry}" ]
+options=$(sed -n 's/^options //p' "${entry}" | head -1)
+ostree=
+for arg in ${options}; do
+    case "${arg}" in ostree=*) ostree=${arg#ostree=} ;; esac
+done
+[ -n "${ostree}" ]
+deploy=$(realpath -e "${SYSROOT%/}${ostree}")
+loader=${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi
+ext4=${deploy}/usr/share/edk2/drivers/ext4aa64.efi
+adtbloader=${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi
+dtb_list=${deploy}/usr/lib/armada/supported-dtbs
+for file in "${loader}" "${ext4}" "${adtbloader}"; do [ -s "${file}" ]; done
+[ -s "${dtb_list}" ]
+
+choice=
+for arg in $(cat "${CMDLINE}" 2>/dev/null || true); do
+    case "${arg}" in armada.device=*) choice=${arg#armada.device=} ;; esac
+done
+selected=
+if [ -z "${choice}" ] && [ -s "${ESP}/armada/device" ]; then
+    read -r choice < "${ESP}/armada/device"
+fi
+if [ "${choice}" != auto ] && grep -Fxq "${choice}" "${dtb_list}"; then
+    selected=${choice}
+fi
+
+mapfile -t entries < <(find "${BOOTROOT}/loader/entries" -maxdepth 1 -name '*.conf' ! -name '*-dtb-*.conf' -type f | sort)
+[ "${#entries[@]}" -gt 0 ]
+linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
+while read -r name; do
+    dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
+    [ -f "${dtb}" ]
+    model=$(fdtget -t s "${dtb}" / model)
+done < "${dtb_list}"
+
+copy() {
+    mkdir -p "$(dirname "$2")"
+    cmp -s "$1" "$2" && return 0
+    cp -f "$1" "$2.new"
+    sync "$2.new"
+    mv -f "$2.new" "$2"
+}
+
+copy "${loader}" "${ESP}/EFI/BOOT/BOOTAA64.EFI"
+copy "${loader}" "${ESP}/EFI/systemd/systemd-bootaa64.efi"
+copy "${ext4}" "${ESP}/EFI/systemd/drivers/ext4aa64.efi"
+copy "${adtbloader}" "${ESP}/EFI/systemd/drivers/adtbloaderaa64.efi"
+rm -f "${ESP}/EFI/systemd/drivers/dtbloaderaa64.efi"
+
+linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
+dtbs=${BOOTROOT}$(dirname "${linux}")/dtb/qcom
+for dtb in "${dtbs}"/*.dtb; do
+    [ -f "${dtb}" ]
+    copy "${dtb}" "${ESP}/dtbloader/dtbs/qcom/${dtb##*/}"
+done
+
+rm -f "${BOOTROOT}/loader/entries"/*-dtb-*.conf
+for file in "${entries[@]}"; do
+    linux=$(sed -n 's/^linux //p' "${file}" | head -1)
+    sed -e 's|^title .*|title Armada OS (Automatic)|' -e '/^fdtdir /d' \
+        -e 's/ armada\.device=[^ ]*//g' -e 's|^options |options armada.device=auto |' \
+        "${file}" > "${file}.new"
+    mv -f "${file}.new" "${file}"
+    while read -r name; do
+        dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
+        [ -f "${dtb}" ] || continue
+        model=$(fdtget -t s "${dtb}" / model)
+        device=${file%.conf}-dtb-${name}.conf
+        sed -e "s|^title .*|title Armada OS - ${model}|" \
+            -e "s|armada.device=auto|armada.device=${name}|" "${file}" > "${device}.new"
+        printf 'devicetree %s/dtb/qcom/%s.dtb\n' "$(dirname "${linux}")" "${name}" >> "${device}.new"
+        mv -f "${device}.new" "${device}"
+    done < "${dtb_list}"
+done
+
+mkdir -p "${ESP}/armada" "${ESP}/loader/entries" "${ESP}/ostree"
+for file in "${ESP}/ostree"/*; do
+    [ ! -e "${file}" ] || [ -e "${BOOTROOT}/ostree/${file##*/}" ] || rm -rf "${file}"
+done
+while IFS= read -r -d '' file; do
+    copy "${file}" "${ESP}/${file#"${BOOTROOT}/"}"
+done < <(find "${BOOTROOT}/ostree" -type f -print0)
+for file in "${BOOTROOT}/loader/entries"/*.conf; do
+    copy "${file}" "${ESP}/loader/entries/${file##*/}"
+done
+for file in "${ESP}/loader/entries"/*.conf; do
+    [ ! -e "${file}" ] || [ -e "${BOOTROOT}/loader/entries/${file##*/}" ] || rm -f "${file}"
+done
+printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${ESP}/armada/backend.conf"
+if [ -n "${selected}" ]; then
+    printf '%s\n' "${selected}" > "${ESP}/armada/device"
+    printf 'timeout menu-hidden\neditor no\ndefault *-dtb-%s\n' "${selected}" > "${ESP}/loader/loader.conf"
+else
+    rm -f "${ESP}/armada/device"
+    printf 'timeout menu-hidden\neditor no\n' > "${ESP}/loader/loader.conf"
+fi
+sync

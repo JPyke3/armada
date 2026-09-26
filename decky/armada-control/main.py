@@ -19,9 +19,11 @@ from armada_control.system import (
     set_abl_auto_enabled,
     set_bottom_screen_brightness,
     set_bottom_screen_enabled,
+    get_sleep_logs_enabled,
     set_mtp_enabled,
     set_desktop_mode,
     set_sleep_mode,
+    set_sleep_logs_enabled,
     set_ssh_enabled,
 )
 from armada_control.tweaks import load_compat_applied, save_compat_applied, save_tweaks
@@ -78,6 +80,12 @@ class Plugin:
     async def set_sleep_mode(self, value):
         return await asyncio.to_thread(set_sleep_mode, value)
 
+    async def get_sleep_logs_enabled(self):
+        return await asyncio.to_thread(get_sleep_logs_enabled)
+
+    async def set_sleep_logs_enabled(self, enabled):
+        return await asyncio.to_thread(set_sleep_logs_enabled, enabled)
+
     async def reapply_perf(self):
         return await asyncio.to_thread(reapply_perf)
 
@@ -90,8 +98,8 @@ class Plugin:
     async def get_rgb(self):
         return await asyncio.to_thread(get_rgb)
 
-    async def set_rgb(self, enabled, color, brightness):
-        return await asyncio.to_thread(set_rgb, enabled, color, brightness)
+    async def set_rgb(self, enabled, color, saturation, brightness):
+        return await asyncio.to_thread(set_rgb, enabled, color, saturation, brightness)
 
     async def get_controller_state(self):
         return await asyncio.to_thread(controller_state)

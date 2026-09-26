@@ -112,6 +112,14 @@ class PlanningTests(unittest.TestCase):
         self.assertIn(f"uuid={plan.userdata.uuid}", plan.script())
         self.assertIn(f"/dev/sda17: start={plan.userdata.start}, size={plan.userdata_end-plan.userdata.start}", plan.script())
 
+    def test_efi_uses_xbootldr_partition_type(self):
+        plan = i.Plan.make(table(), 16, "efi")
+        self.assertEqual(plan.backend, "efi")
+        self.assertEqual(plan.create[1].type, i.XBOOTLDR_TYPE)
+        self.assertEqual(i.Plan.make(table(), 16).create[1].type, i.LINUX_TYPE)
+        self.assertIn("UEFI (systemd-boot)", plan.describe())
+        self.assertIn("Android bootloader (ABL)", i.Plan.make(table(), 16).describe())
+
     def test_replacement_reuses_slots_immediately_after_userdata(self):
         t = table(["ARMADA", "ARMADA_BOOT", "ARMADA_ROOT"])
         t = replace(t, parts=tuple(replace(p, number=p.number+17) if p.number < 4 else p for p in t.parts))
@@ -208,6 +216,19 @@ class PlanningTests(unittest.TestCase):
 
 
 class ExecutionTests(unittest.TestCase):
+    def test_detect_reports_boot_method(self):
+        args = argparse.Namespace(command="detect", device="/dev/sda", json=True)
+        with patch.object(i.os, "geteuid", return_value=0), \
+                patch.object(i, "discover_device", return_value="/dev/sda"), \
+                patch.object(i, "read_table", return_value=table()), \
+                patch.object(i, "table_fingerprint", return_value="confirmed"), \
+                patch.object(i, "boot_backend", return_value="efi"), \
+                patch("sys.stdout", new_callable=io.StringIO) as out:
+            i.execute(args)
+        info = json.loads(out.getvalue())
+        self.assertEqual(info["boot_backend"], "efi")
+        self.assertEqual(info["boot_method"], "UEFI (systemd-boot)")
+
     def test_fingerprint_binds_table_and_kernel_device_identity(self):
         t = table()
         with patch.object(i.os, "stat", return_value=argparse.Namespace(st_rdev=os.makedev(8, 0))), patch.object(Path, "read_text", return_value="10\n"):
@@ -354,7 +375,7 @@ class ExecutionTests(unittest.TestCase):
         def bad_source():
             raise i.Error("missing source layer")
             yield
-        with tempfile.TemporaryFile() as lock, patch.object(i.os, "geteuid", return_value=0), patch.object(i, "discover_device", return_value="/dev/sda"), patch.object(i, "read_table", return_value=table()), patch.object(i, "require_commands"), patch.object(i, "refuse_boot_disk"), patch.object(i, "require_idle"), patch.object(i, "open", return_value=lock, create=True), patch.object(i, "inhibit_sleep", return_value=nullcontext()), patch.object(i, "base_kargs", return_value=[]), patch.object(i, "locked_source", bad_source), patch.object(i.Installation, "partition") as partition:
+        with tempfile.TemporaryFile() as lock, patch.object(i.os, "geteuid", return_value=0), patch.object(i, "discover_device", return_value="/dev/sda"), patch.object(i, "read_table", return_value=table()), patch.object(i, "require_commands"), patch.object(i, "refuse_boot_disk"), patch.object(i, "require_idle"), patch.object(i, "open", return_value=lock, create=True), patch.object(i, "inhibit_sleep", return_value=nullcontext()), patch.object(i, "base_kargs", return_value=[]), patch.object(i, "boot_backend", return_value="abl"), patch.object(i, "locked_source", bad_source), patch.object(i.Installation, "partition") as partition:
             with self.assertRaisesRegex(i.Error, "missing source layer"):
                 i.execute(args)
         partition.assert_not_called()
@@ -383,6 +404,32 @@ class ExecutionTests(unittest.TestCase):
                 self.assertTrue(any(call.args[0] == i.BOOTIMG for call in run.call_args_list))
                 self.assertTrue(any(call.args[-2:] == ("sysroot.readonly", "true") for call in run.call_args_list))
                 self.assertEqual(list((job.work / "target").glob(".armada-bootimg.*")), [])
+                job.close()
+
+    def test_efi_install_uses_efi_updater(self):
+        job = i.Installation(i.Plan.make(table(), 16, "efi"))
+        source = Mock(checksum="selected")
+        source.origin.to_data.return_value = ("origin", 6)
+        mkdtemp = tempfile.mkdtemp
+        with tempfile.TemporaryDirectory() as work:
+            def temporary(*args, **kwargs):
+                if kwargs.get("dir") == "/run":
+                    kwargs["dir"] = work
+                return mkdtemp(*args, **kwargs)
+            def command(*args, **kwargs):
+                if args[:2] == ("ostree", "checkout"):
+                    args[-1].mkdir()
+                elif args[0] == i.EFIUPDATE:
+                    esp = Path(kwargs["env"]["ESP"])
+                    self.assertIn("ARMADA_BOOT_BACKEND=efi", (esp / "armada/backend.conf").read_text())
+                    (esp / "EFI/BOOT").mkdir(parents=True)
+                    (esp / "EFI/BOOT/BOOTAA64.EFI").write_bytes(b"systemd-boot")
+            with patch.object(i.tempfile, "mkdtemp", side_effect=temporary), patch.object(i, "output", return_value="valid-uuid"), patch.object(i, "run", side_effect=command) as run, patch.object(i, "configure_deployment"):
+                job.deploy(source, [])
+                self.assertTrue(any(call.args[0] == i.EFIUPDATE for call in run.call_args_list))
+                self.assertTrue(any(call.args[-2:] == ("sysroot.bootprefix", "false") for call in run.call_args_list))
+                self.assertTrue(any(call.args[:7] == ("mkfs.vfat", "-F", "32", "-S", 4096, "-s", 1) for call in run.call_args_list))
+                self.assertEqual(job.plan.create[1].type, i.XBOOTLDR_TYPE)
                 job.close()
 
     def test_interrupted_mount_is_still_cleaned_up(self):
@@ -446,38 +493,41 @@ class ExecutionTests(unittest.TestCase):
 
     def test_gui_confirms_all_tail_partitions_without_distro_detection(self):
         info = table(["vendor", "metadata"]).info()
-        info.update(device="/dev/sda", table_fingerprint="confirmed")
+        info.update(device="/dev/sda", table_fingerprint="confirmed", boot_backend="efi")
         gui = i.Gui(None)
         with patch.object(i, "output", return_value=json.dumps(info)), patch.object(gui, "confirm") as confirm, patch.object(gui, "progress") as progress, patch.object(gui, "dialog", return_value=Mock(returncode=1)):
             gui.start()
         self.assertIn("All data in that space will be erased", confirm.call_args.args[0])
+        self.assertIn("UEFI (systemd-boot)", confirm.call_args.args[0])
         self.assertIn(info["partition_names"], confirm.call_args.args[0])
-        progress.assert_called_once_with(["install", "--expect-table", "confirmed"])
+        progress.assert_called_once_with(["install", "--expect-table", "confirmed"], "efi")
         self.assertEqual(gui.command, ["sudo", i.SELF, "--device", "/dev/sda"])
 
     def test_gui_failure_shows_bounded_log_and_recovery(self):
-        gui = i.Gui(None)
-        with tempfile.TemporaryDirectory() as work:
-            log = Path(work) / "install.log"
-            fd = os.open(log, os.O_CREAT | os.O_WRONLY, 0o600)
-            def command(*args, **kwargs):
-                kwargs["stdout"].write("old output\n" * 1000 + "ERROR: missing source layer\n")
-                return Mock(returncode=1)
-            with patch.object(i.tempfile, "mkstemp", return_value=(fd, str(log))), patch.object(i.subprocess, "Popen"), patch.object(i, "run", side_effect=command):
-                with self.assertRaises(i.Error) as error:
-                    gui.progress(["install"])
-            message = str(error.exception)
-            self.assertIn("ERROR: missing source layer", message)
-            self.assertIn("select SD as the boot source in ABL", message)
-            self.assertIn("available until reboot", message)
-            self.assertLess(len(message), 5000)
+        for backend, recovery in (("abl", "select SD as the boot source in ABL"),
+                                  ("efi", "select the SD card in the UEFI boot menu")):
+            gui = i.Gui(None)
+            with self.subTest(backend=backend), tempfile.TemporaryDirectory() as work:
+                log = Path(work) / "install.log"
+                fd = os.open(log, os.O_CREAT | os.O_WRONLY, 0o600)
+                def command(*args, **kwargs):
+                    kwargs["stdout"].write("old output\n" * 1000 + "ERROR: missing source layer\n")
+                    return Mock(returncode=1)
+                with patch.object(i.tempfile, "mkstemp", return_value=(fd, str(log))), patch.object(i.subprocess, "Popen"), patch.object(i, "run", side_effect=command):
+                    with self.assertRaises(i.Error) as error:
+                        gui.progress(["install"], backend)
+                message = str(error.exception)
+                self.assertIn("ERROR: missing source layer", message)
+                self.assertIn(recovery, message)
+                self.assertIn("available until reboot", message)
+                self.assertLess(len(message), 5000)
 
     def test_reset_is_not_a_command(self):
         result = subprocess.run([sys.executable, str(SCRIPT), "reset", "-y"], capture_output=True, text=True)
         self.assertEqual(result.returncode, 2)
         result = subprocess.run([sys.executable, str(SCRIPT), "--help"], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
-        self.assertIn("UNINSTALL CFW", result.stdout)
+        self.assertIn("active ABL or UEFI boot method", result.stdout)
         self.assertNotIn("reset", result.stdout)
 
     def test_toml_kargs_are_parsed_and_filtered(self):

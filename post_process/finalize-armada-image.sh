@@ -5,7 +5,7 @@ set -euxo pipefail
 
 RAW_IMAGE="${1:-output/raw/disk.raw}"
 source "$(dirname "${BASH_SOURCE[0]}")/../abl/release.env"
-OUT="${OUT:-output/armada-$(TZ='America/New_York' date +%Y%m%d).img.gz}"
+OUT="${OUT:-output/armada-$(TZ='America/New_York' date +%Y%m%d)-abl.img.gz}"
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ABL_RELEASES="${REPO_ROOT}/abl/releases.tsv"
 ABL_CATALOG_TOOL="${REPO_ROOT}/system_files/usr/lib/armada/abl-version"
@@ -37,6 +37,10 @@ fi
 
 mkdir -p "${WORK}/mnt"
 sudo mount "${ESP}" "${WORK}/mnt"
+
+sudo mkdir -p "${WORK}/mnt/armada"
+printf 'ARMADA_BOOT_BACKEND=abl\nARMADA_BOOT_CONTRACT=1\n' \
+    | sudo tee "${WORK}/mnt/armada/backend.conf" >/dev/null
 
 sudo mkdir -p "${WORK}/mnt/rocknix_abl"
 # One image serves all devices, so stage a self-contained folder per SoC.

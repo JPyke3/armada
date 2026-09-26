@@ -30,6 +30,14 @@ sha256sum -c <<'EOF'
 1bb1feec68a13da18d581aa2c631798f86f6bc10b55d587b2dd31446a0f8a203  /usr/libexec/armada/gki/generate_gki_certificate.py
 EOF
 
+source /ctx/efi/release.env
+driver=/usr/lib/armada/efi/drivers/adtbloaderaa64.efi
+install -d "${driver%/*}"
+curl --connect-timeout 30 --retry 3 -fsSL -o "${driver}" \
+    "https://github.com/armada-os/adtbloader/releases/download/${ARMADA_ADTBLOADER_VERSION}/adtbloader.efi"
+echo "${ARMADA_ADTBLOADER_SHA256}  ${driver}" | sha256sum -c -
+install -Dpm 0644 /ctx/efi/LICENSE.dtbloader /usr/share/licenses/armada-adtbloader/LICENSE
+
 source /ctx/abl/release.env
 abl_releases=/ctx/abl/releases.tsv
 abl_archive=/tmp/rocknix-abl.tar.gz
@@ -101,13 +109,16 @@ systemctl enable armada-installer-visibility.service
 systemctl enable armada-steamapps.service
 systemctl enable armada-powerd.service
 systemctl enable armada-control.service
-systemctl enable armada-steamos-manager.service
-systemctl --global enable armada-steamos-manager.service
+systemctl enable steamos-manager.service
+systemctl --global enable steamos-manager.service
+systemctl --global enable steamos-manager-session-cleanup.service
+systemctl --global enable armada-steam-default-session.service
 systemctl enable armada-bootimg-sync.service
+systemctl enable armada-efi-sync.service
 systemctl enable armada-esp-rename.service
 systemctl enable armada-boot-hotkeys.service
 systemctl enable armada-flatpak-setup.service
-systemctl enable armada-waydroid-input.path
+systemctl enable armada-waydroid-input.service
 systemctl enable armada-splash-stall.service
 systemctl enable armada-splash-early.service
 systemctl enable armada-splash-reboot-screen.service
@@ -147,3 +158,6 @@ systemctl mask systemd-backlight@.service
 # We ship the flathub repo by default, the fedora repo only contains a subset of
 # the same apps that are in flathub, so we mask it to avoid confusion and issues.
 systemctl mask flatpak-add-fedora-repos.service
+
+# No CEC hardware on any Armada device.
+systemctl --global mask steamos-manager-configure-cecd.service

@@ -218,7 +218,7 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends containernetworking-plugins
+          sudo apt-get install -y --no-install-recommends containernetworking-plugins device-tree-compiler
 
       - name: Install just
         uses: ublue-os/just-action@30ab4659369934b65b655bf8d2fa4ddd6547d384 # v3
@@ -417,25 +417,35 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           images=(output/armada-*.img.gz)
-          if [ "${#images[@]}" -ne 1 ] || [ ! -s "${images[0]}" ]; then
-            echo "::error::Expected exactly one nonempty disk image in output/."
+          if [ "${#images[@]}" -ne 2 ]; then
+            echo "::error::Expected ABL and EFI disk images in output/."
             exit 1
           fi
-          filename="${images[0]##*/}"
-          # Basename so sha256sum -c works beside the downloaded image.
-          (cd output && sha256sum "${filename}" > "${filename}.sha256")
-          {
-            echo "### Disk image"
-            echo "\`${filename}\` ($(du -h "output/${filename}" | cut -f1))"
-          } >> "${GITHUB_STEP_SUMMARY}"
+          for image in "${images[@]}"; do
+            [ -s "${image}" ] || exit 1
+            filename="${image##*/}"
+            (cd output && sha256sum "${filename}" > "${filename}.sha256")
+            echo "\`${filename}\` ($(du -h "${image}" | cut -f1))" >> "${GITHUB_STEP_SUMMARY}"
+          done
 
-      - name: Upload disk image
+      - name: Upload ABL disk image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: armada-disk-pr${{ github.event.pull_request.number }}
+          name: armada-disk-pr${{ github.event.pull_request.number }}-abl
           path: |
-            output/armada-*.img.gz
-            output/armada-*.img.gz.sha256
+            output/armada-*-abl.img.gz
+            output/armada-*-abl.img.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload EFI disk image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: armada-disk-pr${{ github.event.pull_request.number }}-efi
+          path: |
+            output/armada-*-efi.img.gz
+            output/armada-*-efi.img.gz.sha256
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
