@@ -63,6 +63,7 @@ grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-1.conf"
 ! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
 grep -qx 'qcs8550-ayn-thor' "${esp}/armada/device"
+grep -Fqx 'timeout menu-hidden' "${esp}/loader/loader.conf"
 grep -Fqx 'default *-dtb-qcs8550-ayn-thor' "${esp}/loader/loader.conf"
 cmp "${bootdir}/vmlinuz" "${esp}/ostree/default-test/vmlinuz"
 cmp "${bootdir}/initramfs" "${esp}/ostree/default-test/initramfs"
@@ -79,7 +80,7 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 ! test -e "${esp}/armada/device"
 ! grep -q '^default ' "${esp}/loader/loader.conf"
-grep -Fxq 'timeout 5' "${esp}/loader/loader.conf"
+grep -Fxq 'timeout menu-hidden' "${esp}/loader/loader.conf"
 
 unit=${ROOT}/system_files/usr/lib/systemd/system/armada-efi-sync.service
 grep -Fq 'ExecCondition=/usr/libexec/armada/armada-boot-backend is efi' "${unit}"

@@ -106,9 +106,12 @@ done
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${ESP}/armada/backend.conf"
 if [ -n "${selected}" ]; then
     printf '%s\n' "${selected}" > "${ESP}/armada/device"
-    printf 'timeout 5\neditor no\ndefault *-dtb-%s\n' "${selected}" > "${ESP}/loader/loader.conf"
+    # The image shows the menu for five seconds on its first boot. Once that
+    # choice has booted successfully, keep it as the default without delaying
+    # every subsequent boot. Holding a key still reveals a menu-hidden menu.
+    printf 'timeout menu-hidden\neditor no\ndefault *-dtb-%s\n' "${selected}" > "${ESP}/loader/loader.conf"
 else
     rm -f "${ESP}/armada/device"
-    printf 'timeout 5\neditor no\n' > "${ESP}/loader/loader.conf"
+    printf 'timeout menu-hidden\neditor no\n' > "${ESP}/loader/loader.conf"
 fi
 sync
