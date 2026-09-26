@@ -42,14 +42,12 @@ fi
 
 mapfile -t entries < <(find "${BOOTROOT}/loader/entries" -maxdepth 1 -name '*.conf' ! -name '*-dtb-*.conf' -type f | sort)
 [ "${#entries[@]}" -gt 0 ]
-for file in "${entries[@]}"; do
-    linux=$(sed -n 's/^linux //p' "${file}" | head -1)
-    while read -r name; do
-        dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
-        [ -f "${dtb}" ]
-        model=$(fdtget -t s "${dtb}" / model)
-    done < "${dtb_list}"
-done
+linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
+while read -r name; do
+    dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
+    [ -f "${dtb}" ]
+    model=$(fdtget -t s "${dtb}" / model)
+done < "${dtb_list}"
 
 copy() {
     mkdir -p "$(dirname "$2")"
@@ -81,6 +79,7 @@ for file in "${entries[@]}"; do
     mv -f "${file}.new" "${file}"
     while read -r name; do
         dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
+        [ -f "${dtb}" ] || continue
         model=$(fdtget -t s "${dtb}" / model)
         device=${file%.conf}-dtb-${name}.conf
         sed -e "s|^title .*|title Armada OS - ${model}|" \
@@ -106,9 +105,6 @@ done
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${ESP}/armada/backend.conf"
 if [ -n "${selected}" ]; then
     printf '%s\n' "${selected}" > "${ESP}/armada/device"
-    # The image shows the menu for five seconds on its first boot. Once that
-    # choice has booted successfully, keep it as the default without delaying
-    # every subsequent boot. Holding a key still reveals a menu-hidden menu.
     printf 'timeout menu-hidden\neditor no\ndefault *-dtb-%s\n' "${selected}" > "${ESP}/loader/loader.conf"
 else
     rm -f "${ESP}/armada/device"
