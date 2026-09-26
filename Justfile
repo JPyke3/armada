@@ -283,21 +283,37 @@ build-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_build
 [group('Build Virtual Machine Image')]
 build-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "iso" "disk_config/iso.toml")
 
-# Output: ./output/armada-<version>-{abl,efi}.img.gz
+# Output: ./output/armada-<version>-{abl,efi}.img.gz. Pass abl or efi to build
+# only that variant; the default builds both for local and PR builds.
 [group('Armada')]
-build-armada-image $target_image=("localhost/" + image_name) $tag=default_tag: (build-raw target_image tag)
+build-armada-image $target_image=("localhost/" + image_name) $tag=default_tag $variant="all": (build-raw target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Finalizing the freshly-built raw image..."
+    case "{{ variant }}" in
+        abl|efi|all) ;;
+        *) echo "Unknown disk image variant: {{ variant }}" >&2; exit 2 ;;
+    esac
     version=$(podman inspect -t image "${target_image}:${tag}" \
                 | jq -r '.[0].Config.Labels["org.opencontainers.image.version"] // empty')
-    mv output/image/disk.raw output/image/disk-efi.raw
-    cp --reflink=auto output/image/disk-efi.raw output/image/disk-abl.raw
     if [[ -n "$version" && "$version" != unknown ]]; then
         basename="armada-${version}"
     else
         basename="armada-$(TZ=America/New_York date +%Y%m%d)"
     fi
+    if [[ "{{ variant }}" == abl ]]; then
+        mv output/image/disk.raw output/image/disk-abl.raw
+        ./post_process/make-bootimg.sh output/image/disk-abl.raw
+        OUT="output/${basename}-abl.img.gz" ./post_process/finalize-armada-image.sh output/image/disk-abl.raw
+        exit
+    fi
+    if [[ "{{ variant }}" == efi ]]; then
+        mv output/image/disk.raw output/image/disk-efi.raw
+        OUT="output/${basename}-efi.img.gz" ./post_process/finalize-efi-image.sh output/image/disk-efi.raw
+        exit
+    fi
+    mv output/image/disk.raw output/image/disk-efi.raw
+    cp --reflink=auto output/image/disk-efi.raw output/image/disk-abl.raw
     (
         ./post_process/make-bootimg.sh output/image/disk-abl.raw
         OUT="output/${basename}-abl.img.gz" ./post_process/finalize-armada-image.sh output/image/disk-abl.raw
