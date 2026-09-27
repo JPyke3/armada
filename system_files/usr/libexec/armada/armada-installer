@@ -27,7 +27,6 @@ GIB = 1024**3
 ESP_SIZE, BOOT_SIZE, ROOT_MIN, ANDROID_MIN = 512 * MIB, GIB, 32 * GIB, 8 * GIB
 RESERVE = ESP_SIZE + BOOT_SIZE + ROOT_MIN + 64 * MIB
 ESP_TYPE = "c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
-XBOOTLDR_TYPE = "bc13c2ff-59e6-4262-a352-b275fd6f7172"
 LINUX_TYPE = "0fc63daf-8483-4772-8e79-3d69d8477de4"
 BTRFS_OPTS = "noatime,compress=zstd:1,discard=async"
 SELF = "/usr/libexec/armada/armada-installer"
@@ -259,7 +258,7 @@ class Plan:
             raise Error("Not enough free GPT partition slots")
         esp_end, boot_end = start + ESP_SIZE // sector, start + (ESP_SIZE + BOOT_SIZE) // sector
         create = (Partition(numbers[0], start, esp_end, "ARMADA", ESP_TYPE),
-                  Partition(numbers[1], esp_end, boot_end, "ARMADA_BOOT", XBOOTLDR_TYPE if backend == "efi" else LINUX_TYPE),
+                  Partition(numbers[1], esp_end, boot_end, "ARMADA_BOOT", LINUX_TYPE),
                   Partition(numbers[2], boot_end, end, "ARMADA_ROOT", LINUX_TYPE))
         return cls(table, operation, userdata, ud_end, tail, create, backend)
 

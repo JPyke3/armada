@@ -112,10 +112,10 @@ class PlanningTests(unittest.TestCase):
         self.assertIn(f"uuid={plan.userdata.uuid}", plan.script())
         self.assertIn(f"/dev/sda17: start={plan.userdata.start}, size={plan.userdata_end-plan.userdata.start}", plan.script())
 
-    def test_efi_uses_xbootldr_partition_type(self):
+    def test_efi_uses_linux_boot_partition_type(self):
         plan = i.Plan.make(table(), 16, "efi")
         self.assertEqual(plan.backend, "efi")
-        self.assertEqual(plan.create[1].type, i.XBOOTLDR_TYPE)
+        self.assertEqual(plan.create[1].type, i.LINUX_TYPE)
         self.assertEqual(i.Plan.make(table(), 16).create[1].type, i.LINUX_TYPE)
         self.assertIn("UEFI (systemd-boot)", plan.describe())
         self.assertIn("Android bootloader (ABL)", i.Plan.make(table(), 16).describe())
@@ -429,7 +429,7 @@ class ExecutionTests(unittest.TestCase):
                 self.assertTrue(any(call.args[0] == i.EFIUPDATE for call in run.call_args_list))
                 self.assertTrue(any(call.args[-2:] == ("sysroot.bootprefix", "false") for call in run.call_args_list))
                 self.assertTrue(any(call.args[:7] == ("mkfs.vfat", "-F", "32", "-S", 4096, "-s", 1) for call in run.call_args_list))
-                self.assertEqual(job.plan.create[1].type, i.XBOOTLDR_TYPE)
+                self.assertEqual(job.plan.create[1].type, i.LINUX_TYPE)
                 job.close()
 
     def test_interrupted_mount_is_still_cleaned_up(self):

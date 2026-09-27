@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 FINALIZE=${ROOT}/post_process/finalize-efi-image.sh
 
 bash -n "${FINALIZE}"
-grep -Fq 'bc13c2ff-59e6-4262-a352-b275fd6f7172' "${FINALIZE}"
+grep -Fq '0fc63daf-8483-4772-8e79-3d69d8477de4' "${FINALIZE}"
 grep -Fq 'EFI/BOOT/BOOTAA64.EFI' "${FINALIZE}"
 grep -Fq 'EFI/systemd/systemd-bootaa64.efi' "${FINALIZE}"
 grep -Fq 'EFI/systemd/drivers/ext4aa64.efi' "${FINALIZE}"

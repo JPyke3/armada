@@ -11,7 +11,7 @@ LOOP=$(sudo losetup -fP --show "${RAW}")
 trap 'sudo umount "${WORK}/esp" "${WORK}/boot" "${WORK}/root" 2>/dev/null || true; sudo losetup -d "${LOOP}" 2>/dev/null || true; rm -rf "${WORK}"' EXIT
 
 mkdir -p "${WORK}"/{esp,boot,root}
-sudo sfdisk --part-type "${LOOP}" 2 bc13c2ff-59e6-4262-a352-b275fd6f7172
+sudo sfdisk --part-type "${LOOP}" 2 0fc63daf-8483-4772-8e79-3d69d8477de4
 sudo mount "${LOOP}p1" "${WORK}/esp"
 sudo mount "${LOOP}p2" "${WORK}/boot"
 sudo mount -o subvol=root "${LOOP}p3" "${WORK}/root"
