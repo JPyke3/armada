@@ -19,10 +19,6 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/0048-drm-msm-dsi-reparent-byte-pixel-src-to-xo-on-disable.patch`
   source: https://github.com/ROCKNIX/distribution/blob/bcf3b5bc574990b96543484575b06f912153a715/projects/ROCKNIX/devices/SM8750/patches/linux/0048-drm-msm-dsi-reparent-byte-pixel-src-to-xo-on-disable.patch
   upstream: unknown
-- `patches/0048a-drm-msm-dsi-round-byte-clock-rate-after-reparenting-to-PLL.patch`
-  source: https://git.kernel.org/torvalds/c/2028280686f4fa78e2f1f6dede4b6c1fd782b9e3
-  upstream: https://lore.kernel.org/r/20260903-fix-eliza-dsi-v1-1-3474a6c9f2e0@oss.qualcomm.com
-  notes: Context of the struct msm_dsi_host hunk refreshed to apply after `0048`.
 - `patches/0049-drm-msm-dpu-panel-opt-in-8bpc-dither.patch`
   source: armada
   upstream: local

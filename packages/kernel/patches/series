@@ -6,7 +6,6 @@
 0004-drm-msm-a6xx-Enable-IFPC-on-Adreno-740.patch
 0010-msm-resource-cleanup.patch
 0048-drm-msm-dsi-reparent-byte-pixel-src-to-xo-on-disable.patch
-0048a-drm-msm-dsi-round-byte-clock-rate-after-reparenting-to-PLL.patch
 0049-drm-msm-dpu-panel-opt-in-8bpc-dither.patch
 0066-drm-msm-dpu-enable-inline-rotation.patch
 0068-drm-msm-dpu-lutdma-dspp-igc-gamut.patch
