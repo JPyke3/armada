@@ -13,16 +13,20 @@ bootdir=${boot}/ostree/default-test
 rollback_bootdir=${boot}/ostree/default-rollback
 mkdir -p "${esp}/armada" "${boot}/loader/entries" "${deploy}/usr/lib/systemd/boot/efi" \
     "${deploy}/usr/share/edk2/drivers" "${deploy}/usr/lib/armada/efi/drivers" \
+    "${deploy}/usr/lib/armada/efi/refind" \
     "${bootdir}/dtb/qcom" "${rollback_bootdir}/dtb/qcom"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${esp}/armada/backend.conf"
 mkdir -p "${esp}/EFI/systemd/drivers"
 printf stale > "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
+printf stale > "${esp}/EFI/systemd/drivers/adtbloaderaa64.efi"
 mkdir -p "${esp}/dtbloader/dtbs/qcom"
 printf stale > "${esp}/dtbloader/dtbs/qcom/qcs8550-renamed-device.dtb"
 printf keep > "${esp}/dtbloader/dtbs/qcom/README"
 printf loader > "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi"
 printf ext4 > "${deploy}/usr/share/edk2/drivers/ext4aa64.efi"
 printf adtbloader > "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi"
+printf refind > "${deploy}/usr/lib/armada/efi/refind/refind_aa64.efi"
+printf refind-conf > "${deploy}/usr/lib/armada/efi/refind/refind.conf"
 printf thor > "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
 printf new > "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
 printf x1e > "${bootdir}/dtb/qcom/x1e-test.dtb"
@@ -68,10 +72,12 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 
-cmp "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
+cmp "${deploy}/usr/lib/armada/efi/refind/refind_aa64.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
+cmp "${deploy}/usr/lib/armada/efi/refind/refind.conf" "${esp}/EFI/BOOT/refind.conf"
 cmp "${deploy}/usr/share/edk2/drivers/ext4aa64.efi" "${esp}/EFI/systemd/drivers/ext4aa64.efi"
 cmp "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi" \
-    "${esp}/EFI/systemd/drivers/adtbloaderaa64.efi"
+    "${esp}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi"
+! test -e "${esp}/EFI/systemd/drivers/adtbloaderaa64.efi"
 ! test -e "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
 cmp "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb" \
     "${esp}/dtbloader/dtbs/qcom/qcs8550-ayn-thor.dtb"
@@ -94,8 +100,8 @@ grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-1.conf"
 ! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
 ! test -e "${esp}/armada/device"
-grep -Fqx 'timeout 5' "${esp}/loader/loader.conf"
-! grep -q '^default ' "${esp}/loader/loader.conf"
+grep -Fqx 'default ostree-1.conf' "${esp}/loader/loader.conf"
+grep -Fxq 'timeout menu-hidden' "${esp}/loader/loader.conf"
 cmp "${bootdir}/vmlinuz" "${esp}/ostree/default-test/vmlinuz"
 cmp "${bootdir}/initramfs" "${esp}/ostree/default-test/initramfs"
 cmp "${boot}/loader/entries/ostree-1.conf" "${esp}/loader/entries/ostree-1.conf"
@@ -110,7 +116,7 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 grep -qx 'qcs8550-ayn-thor' "${esp}/armada/device"
-! grep -q '^default ' "${esp}/loader/loader.conf"
+grep -Fqx 'default ostree-1.conf' "${esp}/loader/loader.conf"
 grep -Fxq 'timeout menu-hidden' "${esp}/loader/loader.conf"
 grep -qx 'title Armada OS' "${boot}/loader/entries/ostree-1.conf"
 grep -q '^options armada.device=qcs8550-ayn-thor ' "${boot}/loader/entries/ostree-1.conf"

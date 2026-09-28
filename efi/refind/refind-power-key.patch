@@ -1,0 +1,12 @@
+--- a/refind/menu.c
++++ b/refind/menu.c
+@@ -568,6 +568,9 @@
+                 case SCAN_ESC:
+                     MenuExit = MENU_EXIT_ESCAPE;
+                     break;
++                case 0x0102:
++                    MenuExit = MENU_EXIT_ENTER;
++                    break;
+                 case SCAN_INSERT:
+                 case SCAN_F2:
+                     MenuExit = MENU_EXIT_DETAILS;

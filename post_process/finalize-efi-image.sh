@@ -23,21 +23,24 @@ sudo grep -q ' /boot auto rw ' "${deploy}/etc/fstab"
 loader=${usr}/lib/systemd/boot/efi/systemd-bootaa64.efi
 ext4=${usr}/share/edk2/drivers/ext4aa64.efi
 adtbloader=${usr}/lib/armada/efi/drivers/adtbloaderaa64.efi
+refind=${usr}/lib/armada/efi/refind/refind_aa64.efi
+refind_conf=${usr}/lib/armada/efi/refind/refind.conf
 sudo test -s "${loader}"
 sudo test -s "${ext4}"
 sudo test -s "${adtbloader}"
+sudo test -s "${refind}"
+sudo test -s "${refind_conf}"
 
-sudo mkdir -p "${WORK}/esp/EFI/BOOT" "${WORK}/esp/EFI/systemd/drivers" \
+sudo mkdir -p "${WORK}/esp/EFI/BOOT/drivers_aa64" "${WORK}/esp/EFI/systemd/drivers" \
     "${WORK}/esp/armada" "${WORK}/esp/loader" "${WORK}/esp/dtbloader/dtbs/qcom"
-sudo cp "${loader}" "${WORK}/esp/EFI/BOOT/BOOTAA64.EFI"
+sudo cp "${refind}" "${WORK}/esp/EFI/BOOT/BOOTAA64.EFI"
+sudo cp "${refind_conf}" "${WORK}/esp/EFI/BOOT/refind.conf"
+sudo cp "${adtbloader}" "${WORK}/esp/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi"
 sudo cp "${loader}" "${WORK}/esp/EFI/systemd/systemd-bootaa64.efi"
 sudo cp "${ext4}" "${WORK}/esp/EFI/systemd/drivers/ext4aa64.efi"
-sudo cp "${adtbloader}" "${WORK}/esp/EFI/systemd/drivers/adtbloaderaa64.efi"
 sudo cp -r "${ROOT}/efi/adtbloader" "${WORK}/esp/adtbloader"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' \
     | sudo tee "${WORK}/esp/armada/backend.conf" >/dev/null
-printf 'timeout 5\neditor no\n' | sudo tee "${WORK}/esp/loader/loader.conf" >/dev/null
-
 mapfile -t entries < <(sudo find -L "${WORK}/boot/loader/entries" -maxdepth 1 -name '*.conf' -type f)
 [ "${#entries[@]}" -gt 0 ]
 default_entry=$(
@@ -46,6 +49,8 @@ default_entry=$(
         printf '%s\t%s\n' "${version:-0}" "${candidate}"
     done | sort -rn | head -1 | cut -f2
 )
+printf 'default %s\ntimeout menu-hidden\neditor no\n' "${default_entry##*/}" \
+    | sudo tee "${WORK}/esp/loader/loader.conf" >/dev/null
 for entry in "${entries[@]}"; do
     sudo sed -i -e 's|^title .*|title Armada OS (Automatic)|' \
         -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \

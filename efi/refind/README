@@ -1,0 +1,5 @@
+rEFInd 0.14.2 (https://www.rodsbooks.com/refind/), GPL-3.0-or-later.
+
+refind_aa64.efi is built natively with GNU-EFI. refind-power-key.patch maps
+the EFI suspend scan code emitted by Qualcomm handheld power buttons to menu
+confirmation.

@@ -24,8 +24,12 @@ deploy=$(realpath -e "${SYSROOT%/}${ostree}")
 loader=${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi
 ext4=${deploy}/usr/share/edk2/drivers/ext4aa64.efi
 adtbloader=${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi
+refind=${deploy}/usr/lib/armada/efi/refind/refind_aa64.efi
+refind_conf=${deploy}/usr/lib/armada/efi/refind/refind.conf
 dtb_list=${deploy}/usr/lib/armada/supported-dtbs
-for file in "${loader}" "${ext4}" "${adtbloader}"; do [ -s "${file}" ]; done
+for file in "${loader}" "${ext4}" "${adtbloader}" "${refind}" "${refind_conf}"; do
+    [ -s "${file}" ]
+done
 [ -s "${dtb_list}" ]
 
 choice=
@@ -57,11 +61,13 @@ copy() {
     mv -f "$2.new" "$2"
 }
 
-copy "${loader}" "${ESP}/EFI/BOOT/BOOTAA64.EFI"
+copy "${refind}" "${ESP}/EFI/BOOT/BOOTAA64.EFI"
+copy "${refind_conf}" "${ESP}/EFI/BOOT/refind.conf"
+copy "${adtbloader}" "${ESP}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi"
 copy "${loader}" "${ESP}/EFI/systemd/systemd-bootaa64.efi"
 copy "${ext4}" "${ESP}/EFI/systemd/drivers/ext4aa64.efi"
-copy "${adtbloader}" "${ESP}/EFI/systemd/drivers/adtbloaderaa64.efi"
-rm -f "${ESP}/EFI/systemd/drivers/dtbloaderaa64.efi"
+rm -f "${ESP}/EFI/systemd/drivers/adtbloaderaa64.efi" \
+    "${ESP}/EFI/systemd/drivers/dtbloaderaa64.efi"
 
 linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
 dtbs=${BOOTROOT}$(dirname "${linux}")/dtb/qcom
@@ -136,9 +142,9 @@ done
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${ESP}/armada/backend.conf"
 if [ -n "${selected}" ]; then
     printf '%s\n' "${selected}" > "${ESP}/armada/device"
-    printf 'timeout menu-hidden\neditor no\n' > "${ESP}/loader/loader.conf"
 else
     rm -f "${ESP}/armada/device"
-    printf 'timeout 5\neditor no\n' > "${ESP}/loader/loader.conf"
 fi
+printf 'default %s\ntimeout menu-hidden\neditor no\n' \
+    "${entry##*/}" > "${ESP}/loader/loader.conf"
 sync

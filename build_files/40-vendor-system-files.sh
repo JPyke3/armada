@@ -38,6 +38,10 @@ curl --connect-timeout 30 --retry 3 -fsSL -o "${driver}" \
 echo "${ARMADA_ADTBLOADER_SHA256}  ${driver}" | sha256sum -c -
 install -Dpm 0644 /ctx/efi/LICENSE.dtbloader /usr/share/licenses/armada-adtbloader/LICENSE
 
+install -Dpm 0644 /ctx/efi/refind/refind_aa64.efi /usr/lib/armada/efi/refind/refind_aa64.efi
+install -Dpm 0644 /ctx/efi/refind/refind.conf /usr/lib/armada/efi/refind/refind.conf
+install -Dpm 0644 /ctx/efi/refind/LICENSE /usr/share/licenses/armada-refind/LICENSE
+
 source /ctx/abl/release.env
 abl_releases=/ctx/abl/releases.tsv
 abl_src=/ctx/abl
