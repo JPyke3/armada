@@ -43,16 +43,16 @@ cat > "${boot}/loader/entries/ostree-1.conf" <<EOF
 title old
 version 2
 options ostree=/ostree/deploy/default/deploy/test.0
-linux /ostree/default-test/vmlinuz
-initrd /ostree/default-test/initramfs
+linux /boot/ostree/default-test/vmlinuz
+initrd /boot/ostree/default-test/initramfs
 fdtdir /ostree/default-test/dtb
 EOF
 cat > "${boot}/loader/entries/ostree-rollback.conf" <<EOF
 title old rollback
 version 1
 options ostree=/ostree/deploy/default/deploy/rollback.0
-linux /ostree/default-rollback/vmlinuz
-initrd /ostree/default-rollback/initramfs
+linux /boot/ostree/default-rollback/vmlinuz
+initrd /boot/ostree/default-rollback/initramfs
 fdtdir /ostree/default-rollback/dtb
 EOF
 mkdir "${work}/bin"
@@ -100,6 +100,8 @@ grep -qx 'architecture armada-hidden' "${boot}/loader/entries/ostree-rollback.co
 ! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-ayn-thor.conf"
 ! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-new-device.conf"
 grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-1.conf"
+grep -qx 'linux /ostree/default-test/vmlinuz' "${boot}/loader/entries/ostree-1.conf"
+grep -qx 'initrd /ostree/default-test/initramfs' "${boot}/loader/entries/ostree-1.conf"
 ! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
 ! test -e "${esp}/armada/device"

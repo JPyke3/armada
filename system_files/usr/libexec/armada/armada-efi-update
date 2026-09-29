@@ -46,6 +46,7 @@ fi
 mapfile -t entries < <(find "${BOOTROOT}/loader/entries" -maxdepth 1 -name '*.conf' ! -name '*-dtb-*.conf' -type f | sort)
 [ "${#entries[@]}" -gt 0 ]
 linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
+linux=${linux#/boot}
 while read -r name; do
     dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
     [ -f "${dtb}" ]
@@ -70,6 +71,7 @@ rm -f "${ESP}/EFI/BOOT/refind.conf" \
 rm -rf "${ESP}/EFI/BOOT/theme" "${ESP}/EFI/refind"
 
 linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
+linux=${linux#/boot}
 dtbs=${BOOTROOT}$(dirname "${linux}")/dtb/qcom
 for dtb in "${dtbs}"/*.dtb; do
     [ -f "${dtb}" ]
@@ -83,6 +85,7 @@ done
 rm -f "${BOOTROOT}/loader/entries"/*-dtb-*.conf
 for file in "${entries[@]}"; do
     linux=$(sed -n 's/^linux //p' "${file}" | head -1)
+    linux=${linux#/boot}
     dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${selected:-}.dtb
 
     # Keep suppressed deployments as BLS files so a later device selection can
@@ -93,7 +96,9 @@ for file in "${entries[@]}"; do
         else
             title='Armada OS (Rollback)'
         fi
-        sed -e "s|^title .*|title ${title}|" -e '/^fdtdir /d' -e '/^devicetree /d' \
+        sed -e "s|^title .*|title ${title}|" \
+            -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \
+            -e '/^fdtdir /d' -e '/^devicetree /d' \
             -e '/^architecture armada-hidden$/d' -e 's/ armada\.device=[^ ]*//g' \
             -e "s|^options |options armada.device=${selected} |" \
             "${file}" > "${file}.new"
@@ -101,7 +106,9 @@ for file in "${entries[@]}"; do
             "$(dirname "${linux}")" "${selected}" >> "${file}.new"
         mv -f "${file}.new" "${file}"
     elif [ -z "${selected}" ] && [ "${file}" = "${entry}" ]; then
-        sed -e 's|^title .*|title Armada OS (Automatic)|' -e '/^fdtdir /d' \
+        sed -e 's|^title .*|title Armada OS (Automatic)|' \
+            -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \
+            -e '/^fdtdir /d' \
             -e '/^devicetree /d' -e '/^architecture armada-hidden$/d' \
             -e 's/ armada\.device=[^ ]*//g' -e 's|^options |options armada.device=auto |' \
             "${file}" > "${file}.new"
@@ -120,7 +127,8 @@ for file in "${entries[@]}"; do
     else
         # Do not offer rollback until a device is known, or when that rollback
         # deployment does not contain the selected device's DTB.
-        sed -e '/^architecture armada-hidden$/d' "${file}" > "${file}.new"
+        sed -e 's|^linux /boot/|linux /|' -e 's|^initrd /boot/|initrd /|' \
+            -e '/^architecture armada-hidden$/d' "${file}" > "${file}.new"
         printf 'architecture armada-hidden\n' >> "${file}.new"
         mv -f "${file}.new" "${file}"
     fi
