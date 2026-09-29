@@ -13,10 +13,12 @@ bootdir=${boot}/ostree/default-test
 rollback_bootdir=${boot}/ostree/default-rollback
 mkdir -p "${esp}/armada" "${boot}/loader/entries" "${deploy}/usr/lib/systemd/boot/efi" \
     "${deploy}/usr/share/edk2/drivers" "${deploy}/usr/lib/armada/efi/drivers" \
-    "${deploy}/usr/lib/armada/efi/refind" \
     "${bootdir}/dtb/qcom" "${rollback_bootdir}/dtb/qcom"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${esp}/armada/backend.conf"
-mkdir -p "${esp}/EFI/systemd/drivers"
+mkdir -p "${esp}/EFI/BOOT/theme" "${esp}/EFI/refind" "${esp}/EFI/systemd/drivers"
+printf stale > "${esp}/EFI/BOOT/refind.conf"
+printf stale > "${esp}/EFI/BOOT/theme/armada-banner.bmp"
+printf stale > "${esp}/EFI/refind/refind_aa64.efi"
 printf stale > "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
 printf stale > "${esp}/EFI/systemd/drivers/adtbloaderaa64.efi"
 mkdir -p "${esp}/dtbloader/dtbs/qcom"
@@ -25,8 +27,7 @@ printf keep > "${esp}/dtbloader/dtbs/qcom/README"
 printf loader > "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi"
 printf ext4 > "${deploy}/usr/share/edk2/drivers/ext4aa64.efi"
 printf adtbloader > "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi"
-printf refind > "${deploy}/usr/lib/armada/efi/refind/refind_aa64.efi"
-printf refind-conf > "${deploy}/usr/lib/armada/efi/refind/refind.conf"
+printf armada-boot > "${deploy}/usr/lib/armada/efi/armada-boot.efi"
 printf thor > "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
 printf new > "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
 printf x1e > "${bootdir}/dtb/qcom/x1e-test.dtb"
@@ -72,8 +73,10 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 
-cmp "${deploy}/usr/lib/armada/efi/refind/refind_aa64.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
-cmp "${deploy}/usr/lib/armada/efi/refind/refind.conf" "${esp}/EFI/BOOT/refind.conf"
+cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
+! test -e "${esp}/EFI/BOOT/refind.conf"
+! test -e "${esp}/EFI/BOOT/theme"
+! test -e "${esp}/EFI/refind"
 cmp "${deploy}/usr/share/edk2/drivers/ext4aa64.efi" "${esp}/EFI/systemd/drivers/ext4aa64.efi"
 cmp "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi" \
     "${esp}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi"

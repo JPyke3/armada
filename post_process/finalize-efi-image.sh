@@ -23,18 +23,15 @@ sudo grep -q ' /boot auto rw ' "${deploy}/etc/fstab"
 loader=${usr}/lib/systemd/boot/efi/systemd-bootaa64.efi
 ext4=${usr}/share/edk2/drivers/ext4aa64.efi
 adtbloader=${usr}/lib/armada/efi/drivers/adtbloaderaa64.efi
-refind=${usr}/lib/armada/efi/refind/refind_aa64.efi
-refind_conf=${usr}/lib/armada/efi/refind/refind.conf
+armada_boot=${usr}/lib/armada/efi/armada-boot.efi
 sudo test -s "${loader}"
 sudo test -s "${ext4}"
 sudo test -s "${adtbloader}"
-sudo test -s "${refind}"
-sudo test -s "${refind_conf}"
+sudo test -s "${armada_boot}"
 
 sudo mkdir -p "${WORK}/esp/EFI/BOOT/drivers_aa64" "${WORK}/esp/EFI/systemd/drivers" \
     "${WORK}/esp/armada" "${WORK}/esp/loader" "${WORK}/esp/dtbloader/dtbs/qcom"
-sudo cp "${refind}" "${WORK}/esp/EFI/BOOT/BOOTAA64.EFI"
-sudo cp "${refind_conf}" "${WORK}/esp/EFI/BOOT/refind.conf"
+sudo cp "${armada_boot}" "${WORK}/esp/EFI/BOOT/BOOTAA64.EFI"
 sudo cp "${adtbloader}" "${WORK}/esp/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi"
 sudo cp "${loader}" "${WORK}/esp/EFI/systemd/systemd-bootaa64.efi"
 sudo cp "${ext4}" "${WORK}/esp/EFI/systemd/drivers/ext4aa64.efi"

@@ -6,17 +6,18 @@ source "${ROOT}/efi/release.env"
 
 [[ ${ARMADA_ADTBLOADER_VERSION} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 [[ ${ARMADA_ADTBLOADER_SHA256} =~ ^[a-f0-9]{64}$ ]]
+[[ ${ARMADA_BOOT_VERSION} =~ ^[0-9]+(\.[0-9]+)*$ ]]
+[[ ${ARMADA_BOOT_SHA256} =~ ^[a-f0-9]{64}$ ]]
 grep -Fq 'systemd-boot-unsigned' "${ROOT}/build_files/10-base-packages.sh"
 grep -Fq 'edk2-ext4' "${ROOT}/build_files/10-base-packages.sh"
+grep -Fq 'https://github.com/armada-os/adtbloader/releases/download/${ARMADA_ADTBLOADER_VERSION}/adtbloader.efi' \
+    "${ROOT}/build_files/40-vendor-system-files.sh"
 grep -Fq '/usr/lib/armada/efi/drivers/adtbloaderaa64.efi' \
     "${ROOT}/build_files/40-vendor-system-files.sh"
 grep -Fq '/usr/share/licenses/armada-adtbloader/LICENSE' \
     "${ROOT}/build_files/40-vendor-system-files.sh"
-grep -Fq '/usr/lib/armada/efi/refind/refind_aa64.efi' \
+grep -Fq 'https://github.com/armada-os/armada-efi/releases/download/${ARMADA_BOOT_VERSION}/armada-boot.efi' \
     "${ROOT}/build_files/40-vendor-system-files.sh"
-grep -Fq '/usr/share/licenses/armada-refind/LICENSE' \
+grep -Fq '/usr/lib/armada/efi/armada-boot.efi' \
     "${ROOT}/build_files/40-vendor-system-files.sh"
-grep -Fqx 'bdf44aa0f9d339449ad979a3c39e07fc13b94cb7b19febbbe33f668461495419  efi/refind/refind_aa64.efi' \
-    < <(cd "${ROOT}" && sha256sum efi/refind/refind_aa64.efi)
-grep -Fq 'case 0x0102:' "${ROOT}/efi/refind/refind-power-key.patch"
-grep -Fq 'loader /EFI/systemd/systemd-bootaa64.efi' "${ROOT}/efi/refind/refind.conf"
+! grep -i 'refind' "${ROOT}/build_files/40-vendor-system-files.sh"
