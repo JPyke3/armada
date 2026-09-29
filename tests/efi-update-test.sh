@@ -9,10 +9,12 @@ esp=${work}/esp
 boot=${work}/boot
 sysroot=${work}/sysroot
 deploy=${sysroot}/ostree/deploy/default/deploy/test.0
+rollback_deploy=${sysroot}/ostree/deploy/default/deploy/rollback.0
 bootdir=${boot}/ostree/default-test
 rollback_bootdir=${boot}/ostree/default-rollback
 mkdir -p "${esp}/armada" "${boot}/loader/entries" "${deploy}/usr/lib/systemd/boot/efi" \
     "${deploy}/usr/share/edk2/drivers" "${deploy}/usr/lib/armada/efi/drivers" \
+    "${deploy}/usr/lib/armada" "${rollback_deploy}/usr/lib/armada" \
     "${bootdir}/dtb/qcom" "${rollback_bootdir}/dtb/qcom"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${esp}/armada/backend.conf"
 mkdir -p "${esp}/EFI/BOOT/theme" "${esp}/EFI/refind" "${esp}/EFI/systemd/drivers"
@@ -28,6 +30,8 @@ printf loader > "${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi"
 printf ext4 > "${deploy}/usr/share/edk2/drivers/ext4aa64.efi"
 printf adtbloader > "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi"
 printf armada-boot > "${deploy}/usr/lib/armada/efi/armada-boot.efi"
+printf '20260930.current\n' > "${deploy}/usr/lib/armada/version"
+printf '20260924.previous\n' > "${rollback_deploy}/usr/lib/armada/version"
 printf thor > "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
 printf new > "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
 printf x1e > "${bootdir}/dtb/qcom/x1e-test.dtb"
@@ -96,7 +100,10 @@ grep -q '^options armada.device=qcs8550-ayn-thor ' \
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
     "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 ! test -e "${boot}/loader/entries/ostree-1-dtb-x1e-test.conf"
-grep -qx 'architecture armada-hidden' "${boot}/loader/entries/ostree-rollback.conf"
+grep -qx 'title Armada OS (Previous Version)' "${boot}/loader/entries/ostree-rollback.conf"
+grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-rollback.conf"
+! grep -q '^architecture armada-hidden$' "${boot}/loader/entries/ostree-rollback.conf"
+! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-rollback.conf"
 ! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-ayn-thor.conf"
 ! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-new-device.conf"
 grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-1.conf"
@@ -104,6 +111,10 @@ grep -qx 'linux /ostree/default-test/vmlinuz' "${boot}/loader/entries/ostree-1.c
 grep -qx 'initrd /ostree/default-test/initramfs' "${boot}/loader/entries/ostree-1.conf"
 ! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
+grep -qx 'ARMADA_DEFAULT_VERSION=20260930.current' "${esp}/armada/backend.conf"
+grep -qx 'ARMADA_ROLLBACK_ENTRY=ostree-rollback' "${esp}/armada/backend.conf"
+grep -qx 'ARMADA_ROLLBACK_VERSION=20260924.previous' "${esp}/armada/backend.conf"
+grep -qx 'ARMADA_ROLLBACK_DTBS=/ostree/default-rollback/dtb/qcom' "${esp}/armada/backend.conf"
 ! test -e "${esp}/armada/device"
 grep -Fqx 'default ostree-1.conf' "${esp}/loader/loader.conf"
 grep -Fxq 'timeout menu-hidden' "${esp}/loader/loader.conf"
@@ -127,7 +138,7 @@ grep -qx 'title Armada OS' "${boot}/loader/entries/ostree-1.conf"
 grep -q '^options armada.device=qcs8550-ayn-thor ' "${boot}/loader/entries/ostree-1.conf"
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
     "${boot}/loader/entries/ostree-1.conf"
-grep -qx 'title Armada OS (Rollback)' "${boot}/loader/entries/ostree-rollback.conf"
+grep -qx 'title Armada OS (Previous Version)' "${boot}/loader/entries/ostree-rollback.conf"
 grep -q '^options armada.device=qcs8550-ayn-thor ' \
     "${boot}/loader/entries/ostree-rollback.conf"
 grep -qx 'devicetree /ostree/default-rollback/dtb/qcom/qcs8550-ayn-thor.dtb' \
@@ -142,6 +153,16 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 grep -qx 'architecture armada-hidden' "${boot}/loader/entries/ostree-rollback.conf"
 grep -qx 'architecture armada-hidden' "${esp}/loader/entries/ostree-rollback.conf"
+! grep -q '^ARMADA_ROLLBACK_' "${esp}/armada/backend.conf"
+
+printf 'quiet armada.device=auto\n' > "${work}/cmdline"
+rm "${boot}/loader/entries/ostree-rollback.conf"
+PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
+    CMDLINE=${work}/cmdline \
+    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
+    ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
+! test -e "${esp}/loader/entries/ostree-rollback.conf"
+! grep -q '^ARMADA_ROLLBACK_' "${esp}/armada/backend.conf"
 
 rm "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
 if PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
