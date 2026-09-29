@@ -3,13 +3,19 @@
 # the BLS default on failure while preserving the updater's failure status.
 set -uo pipefail
 
-if /usr/libexec/armada/armada-bootimg-update; then
+case "$(/usr/libexec/armada/armada-boot-backend)" in
+abl) update=/usr/libexec/armada/armada-bootimg-update ;;
+efi) update=/usr/libexec/armada/armada-efi-update ;;
+*) exit 0 ;;
+esac
+
+if "${update}"; then
     exit 0
 else
     update_status=$?
 fi
 
-echo "armada-bootimg-finalize: boot image update failed (${update_status}); rolling back deployment" >&2
+echo "armada-bootimg-finalize: boot update failed (${update_status}); rolling back deployment" >&2
 if /usr/bin/bootc rollback; then
     echo "armada-bootimg-finalize: deployment rollback succeeded" >&2
 else

@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+
+esp=${ESP:-/boot/efi}
+backend=${ARMADA_BOOT_BACKEND:-}
+
+if [ -z "${backend}" ] && [ -r "${esp}/armada/backend.conf" ]; then
+    marker=${esp}/armada/backend.conf
+    if [ "$(sed -n 's/^ARMADA_BOOT_CONTRACT=//p' "${marker}")" = 1 ]; then
+        backend=$(sed -n 's/^ARMADA_BOOT_BACKEND=//p' "${marker}")
+    fi
+fi
+if [ -z "${backend}" ] && [ -s "${esp}/KERNEL" ]; then
+    backend=abl
+fi
+case "${backend}" in
+abl | efi) ;;
+*) backend=unknown ;;
+esac
+
+if [ "${1:-}" = is ]; then
+    [ "${backend}" = "${2:-}" ]
+else
+    printf '%s\n' "${backend}"
+fi
