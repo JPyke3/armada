@@ -3,15 +3,20 @@ import { test } from "node:test";
 import worker from "./worker.mjs";
 
 function build(version = "20260909.249e21d", channel = "preview") {
-  const filename = `armada-${version}.img.gz`;
-  const key = `${channel}/${filename}`;
+  const images = Object.fromEntries(["abl", "efi"].map((variant, index) => {
+    const filename = `armada-${version}-${variant}.img.gz`;
+    return [variant, { filename, key: `${channel}/${filename}`, size: 6267990432 + index, sha256: (index ? "b" : "a").repeat(64) }];
+  }));
+  const checksums = Object.fromEntries(Object.entries(images).map(([variant, image]) => [variant, { key: `${image.key}.sha256` }]));
   return {
     version,
     published_at: "2026-09-09T14:17:22Z",
     build_commit: "249e21d2eb8be0241d73513fc8b97ec89a756eda",
     build_commit_title: "fix(ci): publish Preview images",
-    image: { filename, key, size: 6267990432, sha256: "a".repeat(64) },
-    checksum: { key: `${key}.sha256` },
+    images,
+    checksums,
+    image: images.abl,
+    checksum: checksums.abl,
   };
 }
 
@@ -35,7 +40,7 @@ test("stable image link redirects to the current dated file", async () => {
     const response = await worker.fetch(request(path), bucket());
     assert.equal(response.status, 302);
     assert.equal(response.headers.get("Location"),
-      "https://downloads.armadaos.dev/preview/armada-20260909.249e21d.img.gz");
+      "https://downloads.armadaos.dev/preview/armada-20260909.249e21d-abl.img.gz");
     assert.equal(response.headers.get("Cache-Control"), "no-store");
   }
 });
@@ -47,7 +52,28 @@ test("the next request sees an updated manifest", async () => {
   latest = manifest("20260910.abcdef0");
   const second = await worker.fetch(request("/preview/latest"), env);
   assert.notEqual(first.headers.get("Location"), second.headers.get("Location"));
-  assert.ok(second.headers.get("Location").endsWith("armada-20260910.abcdef0.img.gz"));
+  assert.ok(second.headers.get("Location").endsWith("armada-20260910.abcdef0-abl.img.gz"));
+});
+
+test("variant links redirect independently", async () => {
+  for (const variant of ["abl", "efi"]) {
+    const response = await worker.fetch(request(`/preview/latest/${variant}`), bucket());
+    assert.equal(response.status, 302);
+    assert.ok(response.headers.get("Location").endsWith(`-${variant}.img.gz`));
+  }
+});
+
+test("legacy manifests remain ABL-compatible", async t => {
+  t.mock.method(console, "error", () => {});
+  const legacy = build();
+  const filename = `armada-${legacy.version}.img.gz`;
+  legacy.image = { ...legacy.image, filename, key: `preview/${filename}` };
+  legacy.checksum = { key: `${legacy.image.key}.sha256` };
+  delete legacy.images;
+  delete legacy.checksums;
+  const index = { channel: "preview", latest: legacy.version, builds: [legacy] };
+  assert.equal((await worker.fetch(request("/preview/latest"), bucket(index))).status, 302);
+  assert.equal((await worker.fetch(request("/preview/latest/efi"), bucket(index))).status, 503);
 });
 
 test("index renders the published image, checksum, date, and size without client scripts", async () => {
@@ -62,8 +88,11 @@ test("index renders the published image, checksum, date, and size without client
     assert.match(html, /September 9, 2026/);
     assert.ok(html.includes(build().image.key));
     assert.ok(html.includes(build().checksum.key));
+    assert.ok(html.includes(build().images.efi.key));
+    assert.ok(html.includes(build().checksums.efi.key));
     assert.ok(!html.includes("<script"));
     assert.ok(html.includes('href="/preview/latest"'));
+    assert.ok(html.includes('href="/preview/latest/efi"'));
   }
 });
 
@@ -96,8 +125,10 @@ test("the page reads latest and history entirely from builds.json", async () => 
   assert.ok(html.includes(`https://github.com/armada-os/armada/commit/${newer.build_commit}`));
   assert.ok(html.includes('fix: &lt;screen&gt; &amp; brightness — café 🚀'));
   for (const item of [older, newer]) {
-    assert.ok(html.includes(`href="https://downloads.armadaos.dev/${item.image.key}"`));
-    assert.ok(html.includes(`href="https://downloads.armadaos.dev/${item.checksum.key}"`));
+    for (const variant of ["abl", "efi"]) {
+      assert.ok(html.includes(`href="https://downloads.armadaos.dev/${item.images[variant].key}"`));
+      assert.ok(html.includes(`href="https://downloads.armadaos.dev/${item.checksums[variant].key}"`));
+    }
   }
 });
 
@@ -165,6 +196,8 @@ test("staging renders its own history and latest link", async () => {
     for (const item of index.builds) {
       assert.ok(html.includes(item.image.key));
       assert.ok(html.includes(item.checksum.key));
+      assert.ok(html.includes(item.images.efi.key));
+      assert.ok(html.includes(item.checksums.efi.key));
     }
   }
 });
@@ -184,7 +217,7 @@ test("preview and staging latest links resolve independently", async () => {
   }
   manifests["staging/builds.json"] = manifest("20260911.abcdef1", "staging");
   const response = await worker.fetch(request("/staging/latest"), env);
-  assert.ok(response.headers.get("Location").endsWith("armada-20260911.abcdef1.img.gz"));
+  assert.ok(response.headers.get("Location").endsWith("armada-20260911.abcdef1-abl.img.gz"));
   assert.ok((await (await worker.fetch(request("/"), env)).text()).includes("Preview disk images"));
 });
 
