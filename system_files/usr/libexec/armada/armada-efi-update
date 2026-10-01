@@ -97,6 +97,7 @@ copy() {
 }
 
 copy "${armada_boot}" "${ESP}/EFI/BOOT/BOOTAA64.EFI"
+copy "${armada_boot}" "${ESP}/EFI/Microsoft/Boot/bootmgfw.efi"
 copy "${adtbloader}" "${ESP}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi"
 copy "${loader}" "${ESP}/EFI/systemd/systemd-bootaa64.efi"
 copy "${ext4}" "${ESP}/EFI/systemd/drivers/ext4aa64.efi"
