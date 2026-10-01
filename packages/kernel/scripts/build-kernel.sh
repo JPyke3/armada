@@ -15,6 +15,9 @@ SERIES_FILE="${REPO_ROOT}/patches/series"
 PATCHES_DIR="${REPO_ROOT}/patches"
 DTS_DIR="${REPO_ROOT}/dts"
 KCONFIG_OVERRIDES="${REPO_ROOT}/config/armada-kernel.config.overrides"
+IN_TREE_DTBS=(
+    x1e80100-lenovo-yoga-slim7x
+)
 
 # ---------- Host arch / cross-compile setup ----------
 HOST_ARCH=$(uname -m)
@@ -250,11 +253,20 @@ for dts in "${DTS_DIR}"/*.dts; do
     fi
 done
 
+for base in "${IN_TREE_DTBS[@]}"; do
+    dtb_src="arch/arm64/boot/dts/qcom/${base}.dtb"
+    if [ -f "${dtb_src}" ]; then
+        cp "${dtb_src}" "${STAGE}/lib/modules/${KVER}/dtb/qcom/"
+    else
+        echo "  WARN: built in-tree DTB missing: ${dtb_src}"
+    fi
+done
+
 cat > "${STAGE}/lib/modules/${KVER}/.armada-source" <<EOF
 Source: linux-${KERNEL_VERSION} (kernel.org stable)
 Built: armada-builder on ${HOST_ARCH}
 Patches applied: ${APPLIED:-?} (from patches/series)
-DTBs included: $(ls ${DTS_DIR}/*.dts | wc -l) boards (SM8250 + SM8550 + SM8650 + SM8750)
+DTBs included: $(find "${STAGE}/lib/modules/${KVER}/dtb/qcom" -name '*.dtb' | wc -l) boards
 Repackaged for: armada
 EOF
 

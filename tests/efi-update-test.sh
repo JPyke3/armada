@@ -17,12 +17,14 @@ mkdir -p "${esp}/armada" "${boot}/loader/entries" "${deploy}/usr/lib/systemd/boo
     "${deploy}/usr/lib/armada" "${rollback_deploy}/usr/lib/armada" \
     "${bootdir}/dtb/qcom" "${rollback_bootdir}/dtb/qcom"
 printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${esp}/armada/backend.conf"
-mkdir -p "${esp}/EFI/BOOT/theme" "${esp}/EFI/refind" "${esp}/EFI/systemd/drivers"
+mkdir -p "${esp}/EFI/BOOT/theme" "${esp}/EFI/refind" "${esp}/EFI/systemd/drivers" \
+    "${esp}/EFI/Microsoft/Boot"
 printf stale > "${esp}/EFI/BOOT/refind.conf"
 printf stale > "${esp}/EFI/BOOT/theme/armada-banner.bmp"
 printf stale > "${esp}/EFI/refind/refind_aa64.efi"
 printf stale > "${esp}/EFI/systemd/drivers/dtbloaderaa64.efi"
 printf stale > "${esp}/EFI/systemd/drivers/adtbloaderaa64.efi"
+printf stale > "${esp}/EFI/Microsoft/Boot/bootmgfw.efi"
 mkdir -p "${esp}/dtbloader/dtbs/qcom"
 printf stale > "${esp}/dtbloader/dtbs/qcom/qcs8550-renamed-device.dtb"
 printf keep > "${esp}/dtbloader/dtbs/qcom/README"
@@ -78,6 +80,8 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 
 cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
+cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" \
+    "${esp}/EFI/Microsoft/Boot/bootmgfw.efi"
 ! test -e "${esp}/EFI/BOOT/refind.conf"
 ! test -e "${esp}/EFI/BOOT/theme"
 ! test -e "${esp}/EFI/refind"
