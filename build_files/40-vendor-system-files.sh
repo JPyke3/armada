@@ -42,6 +42,7 @@ bootloader=/usr/lib/armada/efi/armada-boot.efi
 curl --connect-timeout 30 --retry 3 -fsSL -o "${bootloader}" \
     "https://github.com/armada-os/armada-efi/releases/download/${ARMADA_BOOT_VERSION}/armada-boot-${ARMADA_BOOT_VERSION}.efi"
 echo "${ARMADA_BOOT_SHA256}  ${bootloader}" | sha256sum -c -
+printf '%s\n' "${ARMADA_BOOT_VERSION}" > "${bootloader%/*}/version"
 
 source /ctx/abl/release.env
 abl_releases=/ctx/abl/releases.tsv
