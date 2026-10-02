@@ -1,5 +1,5 @@
 const DOWNLOAD_ORIGIN = "https://downloads.armadaos.dev";
-const CHANNEL_PATH = /^\/(preview|staging)(\/latest|\/)?$/;
+const CHANNEL_PATH = /^\/(preview|staging)(?:\/(latest)(?:\/(abl|efi))?)?\/?$/;
 
 export default {
   async fetch(request, env) {
@@ -11,8 +11,8 @@ export default {
     }
     const channel = route?.[1] ?? "preview";
     const title = channel === "staging" ? "Staging" : "Preview";
-    const alias = route?.[2] === "/latest";
-    const imageKey = new RegExp(`^${channel}/armada-\\d{8}(?:\\.[a-f0-9]{7,40})?\\.img\\.gz$`);
+    const alias = route?.[2] === "latest";
+    const variant = route?.[3] ?? "abl";
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", {
         status: 405,
@@ -26,23 +26,18 @@ export default {
       const manifest = await object.json();
       if (manifest.channel !== channel ||
           !Array.isArray(manifest.builds) || !manifest.builds.length ||
-          !manifest.builds.every(build =>
-            /^[a-f0-9]{40}$/.test(build.build_commit) &&
-            typeof build.build_commit_title === "string" &&
-            imageKey.test(build.image?.key) &&
-            build.image.filename === build.image.key.slice(channel.length + 1) &&
-            build.checksum?.key === `${build.image.key}.sha256` &&
-            /^[a-f0-9]{64}$/.test(build.image.sha256) &&
-            Number.isSafeInteger(build.image.size) && build.image.size > 0)) {
+          !manifest.builds.every(build => validBuild(build, channel))) {
         throw new Error(`Invalid ${title} manifest`);
       }
       const latest = manifest.builds.find(build => build.version === manifest.latest);
       if (!latest) throw new Error(`Latest ${title} build is missing from manifest`);
       if (alias) {
+        const image = assets(latest).images[variant];
+        if (!image) throw new Error(`Latest ${title} ${variant} image is missing`);
         return new Response(null, {
           status: 302,
           headers: {
-            Location: `${DOWNLOAD_ORIGIN}/${latest.image.key}`,
+            Location: `${DOWNLOAD_ORIGIN}/${image.key}`,
             "Cache-Control": "no-store",
           },
         });
@@ -82,15 +77,42 @@ function commitLink(commit, title) {
   return `<a href="https://github.com/armada-os/armada/commit/${commit}">${escapeHtml(title)} · ${commit.slice(0, 7)} ↗</a>`;
 }
 
+function assets(build) {
+  return {
+    images: build.images ?? { abl: build.image },
+    checksums: build.checksums ?? { abl: build.checksum },
+  };
+}
+
+function validBuild(build, channel) {
+  if (!/^[a-f0-9]{40}$/.test(build.build_commit) || typeof build.build_commit_title !== "string") return false;
+  const set = assets(build);
+  const variants = build.images ? ["abl", "efi"] : ["abl"];
+  if (build.images && (build.image?.key !== set.images.abl?.key || build.checksum?.key !== set.checksums.abl?.key)) return false;
+  return variants.every(variant => {
+    const image = set.images[variant];
+    const checksum = set.checksums[variant];
+    const suffix = variant === "efi" ? "-efi" : build.images ? "-abl" : "";
+    const key = new RegExp(`^${channel}/armada-\\d{8}(?:\\.[a-f0-9]{7,40})?${suffix}\\.img\\.gz$`);
+    return key.test(image?.key) && image.filename === image.key.slice(channel.length + 1) &&
+      checksum?.key === `${image.key}.sha256` && /^[a-f0-9]{64}$/.test(image.sha256) &&
+      Number.isSafeInteger(image.size) && image.size > 0;
+  });
+}
+
 function renderPage(latest, previous, channel, title) {
   const rows = [latest, ...previous].map(build => {
     const current = build === latest;
+    const set = assets(build);
+    const variants = set.images.efi ? ["abl", "efi"] : ["abl"];
+    const sizes = variants.map(variant => `${variant.toUpperCase()} ${(set.images[variant].size / 1e9).toFixed(2)} GB`).join("<br>");
+    const files = variants.map(variant => `<a href="${DOWNLOAD_ORIGIN}/${set.images[variant].key}">${variant.toUpperCase()} image</a> · <a href="${DOWNLOAD_ORIGIN}/${set.checksums[variant].key}">SHA-256</a>`).join("<br>");
     return `<tr${current ? ' class="latest"' : ""}>
       <th scope="row"><span class="version">${escapeHtml(build.version)}</span>${current ? ' <strong class="label">Latest</strong>' : ""}
         <div class="commit">${commitLink(build.build_commit, build.build_commit_title)}</div></th>
       <td class="date">${escapeHtml(formatDate(build.published_at))}</td>
-      <td class="size">${(build.image.size / 1e9).toFixed(2)} GB</td>
-      <td class="files"><a href="${DOWNLOAD_ORIGIN}/${build.image.key}">Image (.img.gz)</a><br><a href="${DOWNLOAD_ORIGIN}/${build.checksum.key}">SHA-256 checksum</a></td>
+      <td class="size">${sizes}</td>
+      <td class="files">${files}</td>
     </tr>`;
   }).join("\n");
   return `<!doctype html>
@@ -127,7 +149,7 @@ function renderPage(latest, previous, channel, title) {
 <body>
   <main>
     <h1>${title} disk images</h1>
-    <p><a href="/${channel}/latest">Download latest image</a> · <a href="https://armadaos.dev/devices/supported-devices/">Supported devices</a> · <a href="https://armadaos.dev/getting-started/flashing-to-an-sd-card/">Installation guide</a></p>
+    <p><a href="/${channel}/latest">Download latest ABL image</a>${assets(latest).images.efi ? ` · <a href="/${channel}/latest/efi">Download latest EFI image</a>` : ""} · <a href="https://armadaos.dev/devices/supported-devices/">Supported devices</a> · <a href="https://armadaos.dev/getting-started/flashing-to-an-sd-card/">Installation guide</a></p>
     <div class="table-wrap" role="region" aria-label="Available ${title} builds" tabindex="0">
       <table aria-label="${title} disk image downloads">
         <thead><tr><th scope="col">Build / commit</th><th scope="col">Published</th><th scope="col">Size</th><th scope="col">Files</th></tr></thead>
