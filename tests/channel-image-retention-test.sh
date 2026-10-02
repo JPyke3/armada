@@ -44,6 +44,18 @@ assert image(1) not in expired_keys(objects, image(1))
 assert len(expired_keys(objects, image(1))) == 4
 assert expired_keys([obj(image(1), 1), obj(image(1)+'.sha256', 1)], image(1)) == []
 
+def variant(day, kind):
+    return f'{channel}/armada-202610{day:02}.abcdef0-{kind}.img.gz'
+
+variant_objects = [obj(variant(day, kind) + suffix, day)
+                   for day in range(1, 8) for kind in ('abl', 'efi') for suffix in ('', '.sha256')]
+variant_current = [variant(7, 'abl'), variant(7, 'efi')]
+variant_expected = {variant(day, kind) + suffix
+                    for day in (1, 2) for kind in ('abl', 'efi') for suffix in ('', '.sha256')}
+assert set(expired_keys(variant_objects, variant_current)) == variant_expected
+partial = [item for item in variant_objects if item['Key'] != variant(6, 'efi')]
+assert variant(6, 'abl') in expired_keys(partial, variant_current)
+
 # Incomplete uploads are removed without displacing complete pairs.
 legacy = f'{channel}/armada-20260801.img.gz'
 assert legacy in expired_keys(objects + [obj(legacy, 1)], image(7))

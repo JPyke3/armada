@@ -293,6 +293,7 @@ jobs:
       needs.build_push.outputs.channel != '' &&
       github.event.repository.fork == false
     permissions:
+      actions: read
       contents: read
       packages: read
     uses: ./.github/workflows/build-disk.yml
