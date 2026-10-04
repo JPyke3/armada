@@ -1,0 +1,7 @@
+#!/bin/bash
+set -euo pipefail
+
+exec 8>"${SYNC_LOCK:-/run/armada-boot-sync.lock}"
+flock -w 30 8
+"${BOOTIMG:-/usr/libexec/armada/armada-bootimg-update}" "$@"
+"${EFIUPDATE:-/usr/libexec/armada/armada-efi-update}"
