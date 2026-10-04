@@ -16,7 +16,14 @@ mkdir -p "${esp}/armada" "${boot}/loader/entries" "${deploy}/usr/lib/systemd/boo
     "${deploy}/usr/share/edk2/drivers" "${deploy}/usr/lib/armada/efi/drivers" \
     "${deploy}/usr/lib/armada" "${rollback_deploy}/usr/lib/armada" \
     "${bootdir}/dtb/qcom" "${rollback_bootdir}/dtb/qcom"
-printf 'ARMADA_BOOT_BACKEND=efi\nARMADA_BOOT_CONTRACT=1\n' > "${esp}/armada/backend.conf"
+printf kernel > "${esp}/KERNEL"
+mkdir -p "${esp}/EFI.disabled" "${deploy}/usr/libexec/armada" "${rollback_deploy}/usr/libexec/armada"
+printf grub > "${esp}/EFI.disabled/old-grub"
+for target in "${deploy}" "${rollback_deploy}"; do
+    cp "${UPDATE}" "${target}/usr/libexec/armada/armada-efi-update"
+    chmod +x "${target}/usr/libexec/armada/armada-efi-update"
+done
+export LOCK_FILE=${work}/efi.lock
 mkdir -p "${esp}/EFI/BOOT/theme" "${esp}/EFI/refind" "${esp}/EFI/systemd/drivers" \
     "${esp}/EFI/fedora" "${boot}/grub2"
 printf stale > "${esp}/EFI/BOOT/refind.conf"
@@ -81,9 +88,11 @@ EOF
 chmod +x "${work}/bin/findmnt" "${work}/bin/fdtget"
 printf 'quiet armada.device=auto\n' > "${work}/cmdline"
 
+cp "${boot}/loader/entries/ostree-1.conf" "${work}/original-entry"
+cp "${boot}/loader/entries/ostree-rollback.conf" "${work}/original-rollback"
+
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
-    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 
 cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
@@ -96,7 +105,8 @@ cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" "${esp}/EFI/Microsoft/Boot/bo
 ! test -e "${esp}/EFI/BOOT/BOOTAA64.CSV"
 ! test -e "${esp}/EFI/BOOT/grub.cfg"
 ! test -e "${esp}/EFI/BOOT/grubaa64.efi"
-! test -e "${boot}/grub2"
+test -d "${boot}/grub2"
+! test -e "${esp}/EFI.disabled"
 cmp "${deploy}/usr/share/edk2/drivers/ext4aa64.efi" "${esp}/EFI/systemd/drivers/ext4aa64.efi"
 cmp "${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi" \
     "${esp}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi"
@@ -107,26 +117,26 @@ cmp "${bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb" \
 cmp "${bootdir}/dtb/qcom/x1e-test.dtb" "${esp}/dtbloader/dtbs/qcom/x1e-test.dtb"
 ! test -e "${esp}/dtbloader/dtbs/qcom/qcs8550-renamed-device.dtb"
 grep -Fxq keep "${esp}/dtbloader/dtbs/qcom/README"
-grep -qx 'title Armada OS (Automatic)' "${boot}/loader/entries/ostree-1.conf"
-grep -qx 'title Armada OS - AYN Thor' "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
+grep -qx 'title Armada OS (Automatic)' "${esp}/loader/entries/ostree-1.conf"
+grep -qx 'title Armada OS - AYN Thor' "${esp}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -qx 'title Armada OS - New Handheld' \
-    "${boot}/loader/entries/ostree-1-dtb-qcs8550-new-device.conf"
+    "${esp}/loader/entries/ostree-1-dtb-qcs8550-new-device.conf"
 grep -q '^options armada.device=qcs8550-ayn-thor ' \
-    "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
+    "${esp}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
-    "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
-! test -e "${boot}/loader/entries/ostree-1-dtb-x1e-test.conf"
-grep -qx 'title Armada OS (Previous Version)' "${boot}/loader/entries/ostree-rollback.conf"
-grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-rollback.conf"
-! grep -q '^architecture armada-hidden$' "${boot}/loader/entries/ostree-rollback.conf"
-! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-rollback.conf"
-! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-ayn-thor.conf"
-! test -e "${boot}/loader/entries/ostree-rollback-dtb-qcs8550-new-device.conf"
-grep -q '^options armada.device=auto ' "${boot}/loader/entries/ostree-1.conf"
-grep -qx 'linux /ostree/default-test/vmlinuz' "${boot}/loader/entries/ostree-1.conf"
-grep -qx 'initrd /ostree/default-test/initramfs' "${boot}/loader/entries/ostree-1.conf"
-! grep -q '^fdtdir ' "${boot}/loader/entries/ostree-1.conf"
-grep -qx 'ARMADA_BOOT_BACKEND=efi' "${esp}/armada/backend.conf"
+    "${esp}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
+! test -e "${esp}/loader/entries/ostree-1-dtb-x1e-test.conf"
+grep -qx 'title Armada OS (Previous Version)' "${esp}/loader/entries/ostree-rollback.conf"
+grep -q '^options armada.device=auto ' "${esp}/loader/entries/ostree-rollback.conf"
+! grep -q '^architecture armada-hidden$' "${esp}/loader/entries/ostree-rollback.conf"
+! grep -q '^fdtdir ' "${esp}/loader/entries/ostree-rollback.conf"
+! test -e "${esp}/loader/entries/ostree-rollback-dtb-qcs8550-ayn-thor.conf"
+! test -e "${esp}/loader/entries/ostree-rollback-dtb-qcs8550-new-device.conf"
+grep -q '^options armada.device=auto ' "${esp}/loader/entries/ostree-1.conf"
+grep -qx 'linux /ostree/default-test/vmlinuz' "${esp}/loader/entries/ostree-1.conf"
+grep -qx 'initrd /ostree/default-test/initramfs' "${esp}/loader/entries/ostree-1.conf"
+! grep -q '^fdtdir ' "${esp}/loader/entries/ostree-1.conf"
+! grep -q '^ARMADA_BOOT_' "${esp}/armada/backend.conf"
 grep -qx 'ARMADA_DEFAULT_VERSION=20260930.current' "${esp}/armada/backend.conf"
 grep -qx 'ARMADA_ROLLBACK_ENTRY=ostree-rollback.conf' "${esp}/armada/backend.conf"
 grep -qx 'ARMADA_ROLLBACK_VERSION=20260924.previous' "${esp}/armada/backend.conf"
@@ -136,46 +146,52 @@ grep -Fqx 'default ostree-1.conf' "${esp}/loader/loader.conf"
 grep -Fxq 'timeout menu-hidden' "${esp}/loader/loader.conf"
 cmp "${bootdir}/vmlinuz" "${esp}/ostree/default-test/vmlinuz"
 cmp "${bootdir}/initramfs" "${esp}/ostree/default-test/initramfs"
-cmp "${boot}/loader/entries/ostree-1.conf" "${esp}/loader/entries/ostree-1.conf"
-cmp "${boot}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf" \
-    "${esp}/loader/entries/ostree-1-dtb-qcs8550-ayn-thor.conf"
+cmp "${work}/original-entry" "${boot}/loader/entries/ostree-1.conf"
+cmp "${work}/original-rollback" "${boot}/loader/entries/ostree-rollback.conf"
+! compgen -G "${boot}/loader/entries/*-dtb-*.conf" >/dev/null
 ! test -e "${esp}/ostree/stale"
 ! test -e "${esp}/loader/entries/stale.conf"
+
+rm "${rollback_deploy}/usr/libexec/armada/armada-efi-update"
+PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
+    CMDLINE=${work}/cmdline \
+    ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
+grep -qx 'architecture armada-hidden' "${esp}/loader/entries/ostree-rollback.conf"
+! grep -q '^ARMADA_ROLLBACK_' "${esp}/armada/backend.conf"
+cp "${UPDATE}" "${rollback_deploy}/usr/libexec/armada/armada-efi-update"
+chmod +x "${rollback_deploy}/usr/libexec/armada/armada-efi-update"
 
 printf 'quiet armada.device=qcs8550-ayn-thor\n' > "${work}/cmdline"
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
-    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 grep -qx 'qcs8550-ayn-thor' "${esp}/armada/device"
 grep -Fqx 'default ostree-1.conf' "${esp}/loader/loader.conf"
 grep -Fxq 'timeout menu-hidden' "${esp}/loader/loader.conf"
-grep -qx 'title Armada OS' "${boot}/loader/entries/ostree-1.conf"
-grep -q '^options armada.device=qcs8550-ayn-thor ' "${boot}/loader/entries/ostree-1.conf"
+grep -qx 'title Armada OS' "${esp}/loader/entries/ostree-1.conf"
+grep -q '^options armada.device=qcs8550-ayn-thor ' "${esp}/loader/entries/ostree-1.conf"
 grep -qx 'devicetree /ostree/default-test/dtb/qcom/qcs8550-ayn-thor.dtb' \
-    "${boot}/loader/entries/ostree-1.conf"
-grep -qx 'title Armada OS (Previous Version)' "${boot}/loader/entries/ostree-rollback.conf"
+    "${esp}/loader/entries/ostree-1.conf"
+grep -qx 'title Armada OS (Previous Version)' "${esp}/loader/entries/ostree-rollback.conf"
 grep -q '^options armada.device=qcs8550-ayn-thor ' \
-    "${boot}/loader/entries/ostree-rollback.conf"
+    "${esp}/loader/entries/ostree-rollback.conf"
 grep -qx 'devicetree /ostree/default-rollback/dtb/qcom/qcs8550-ayn-thor.dtb' \
-    "${boot}/loader/entries/ostree-rollback.conf"
-! grep -q '^architecture armada-hidden$' "${boot}/loader/entries/ostree-rollback.conf"
-! compgen -G "${boot}/loader/entries/*-dtb-*.conf" >/dev/null
+    "${esp}/loader/entries/ostree-rollback.conf"
+! grep -q '^architecture armada-hidden$' "${esp}/loader/entries/ostree-rollback.conf"
+! compgen -G "${esp}/loader/entries/*-dtb-*.conf" >/dev/null
 
 rm "${rollback_bootdir}/dtb/qcom/qcs8550-ayn-thor.dtb"
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
-    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
-grep -qx 'architecture armada-hidden' "${boot}/loader/entries/ostree-rollback.conf"
 grep -qx 'architecture armada-hidden' "${esp}/loader/entries/ostree-rollback.conf"
+cmp "${work}/original-rollback" "${boot}/loader/entries/ostree-rollback.conf"
 ! grep -q '^ARMADA_ROLLBACK_' "${esp}/armada/backend.conf"
 
 printf 'quiet armada.device=auto\n' > "${work}/cmdline"
 rm "${boot}/loader/entries/ostree-rollback.conf"
 PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
-    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
 ! test -e "${esp}/loader/entries/ostree-rollback.conf"
 ! grep -q '^ARMADA_ROLLBACK_' "${esp}/armada/backend.conf"
@@ -183,12 +199,76 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
 rm "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
 if PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
-    BACKEND=${ROOT}/system_files/usr/libexec/armada/armada-boot-backend \
     ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}" 2>/dev/null; then
     echo "EFI update accepted a missing DTB in the default deployment" >&2
     exit 1
 fi
 
-unit=${ROOT}/system_files/usr/lib/systemd/system/armada-efi-sync.service
-grep -Fq 'ExecCondition=/usr/libexec/armada/armada-boot-backend is efi' "${unit}"
-grep -Fq 'systemctl enable armada-efi-sync.service' "${ROOT}/build_files/40-vendor-system-files.sh"
+cmp "${work}/original-entry" "${boot}/loader/entries/ostree-1.conf"
+[ "$(cat "${esp}/KERNEL")" = kernel ]
+
+printf new > "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
+run_update() {
+    PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
+        CMDLINE=${work}/cmdline ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}"
+}
+run_update
+cmp "${work}/original-entry" "${boot}/loader/entries/ostree-1.conf"
+
+# A new kernel deployment changes both BLS paths; EFI must follow without touching the originals.
+cp -r "${deploy}" "${deploy%/*}/next.0"
+cp -r "${bootdir}" "${boot}/ostree/default-next"
+sed -i -e 's|test.0|next.0|' -e 's|default-test|default-next|g' \
+    "${boot}/loader/entries/ostree-1.conf"
+printf next-kernel > "${boot}/ostree/default-next/vmlinuz"
+run_update
+cmp "${boot}/ostree/default-next/vmlinuz" "${esp}/ostree/default-next/vmlinuz"
+grep -q 'ostree=/ostree/deploy/default/deploy/next.0' "${esp}/loader/entries/ostree-1.conf"
+cp "${work}/original-entry" "${boot}/loader/entries/ostree-1.conf"
+run_update
+grep -q 'ostree=/ostree/deploy/default/deploy/test.0' "${esp}/loader/entries/ostree-1.conf"
+
+# The first EFI install must fail before exposing loaders when the FAT partition is full.
+rm -rf "${esp}/EFI"
+cat > "${work}/bin/df" <<'EOF'
+#!/bin/sh
+printf 'Avail\n0\n'
+EOF
+chmod +x "${work}/bin/df"
+if run_update; then
+    echo 'EFI setup accepted a full partition' >&2
+    exit 1
+fi
+! test -e "${esp}/EFI/BOOT/BOOTAA64.EFI"
+! test -e "${esp}/EFI/systemd/systemd-bootaa64.efi"
+[ "$(cat "${esp}/KERNEL")" = kernel ]
+rm "${work}/bin/df"
+
+cat > "${work}/bin/cp" <<'EOF'
+#!/bin/sh
+case "$*" in *drivers_aa64*) exit 1 ;; esac
+exec /usr/bin/cp "$@"
+EOF
+chmod +x "${work}/bin/cp"
+if run_update; then
+    echo 'EFI setup ignored an interrupted copy' >&2
+    exit 1
+fi
+! test -e "${esp}/EFI/BOOT/BOOTAA64.EFI"
+! test -e "${esp}/EFI/systemd/systemd-bootaa64.efi"
+rm "${work}/bin/cp"
+run_update
+cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
+
+# Old deployments must boot /KERNEL rather than leave stale EFI files in control.
+rm "${deploy}/usr/libexec/armada/armada-efi-update"
+run_update
+for file in EFI/BOOT/BOOTAA64.EFI EFI/Microsoft/Boot/bootmgfw.efi EFI/systemd/systemd-bootaa64.efi; do
+    ! test -e "${esp}/${file}"
+done
+[ "$(cat "${esp}/KERNEL")" = kernel ]
+cp "${UPDATE}" "${deploy}/usr/libexec/armada/armada-efi-update"
+chmod +x "${deploy}/usr/libexec/armada/armada-efi-update"
+run_update
+cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
+cmp "${work}/original-entry" "${boot}/loader/entries/ostree-1.conf"

@@ -78,9 +78,19 @@ along with the upstream-derived packages it ships (see
 [`packages/`](packages/README.md)). The development recipes require
 [just](https://just.systems/) and [Podman](https://podman.io/):
 
-`just build-armada-image` produces an `-abl.img.gz` image for supported Android
-bootloader devices and an `-efi.img.gz` image for UEFI/systemd-boot devices.
-Both contain the same bootc OS and update stream.
+`just build-armada-image` produces one `armada-<version>.img.gz` containing both
+`/KERNEL` for ABL and EFI boot files. Propeller prefers EFI when both are present.
+SD images retain MBR and their existing FAT filesystem; internal installations
+retain GPT and FAT16.
+
+Existing ABL installations gain EFI files on their first boot into the updated
+release, without reformatting. Both boot paths then follow OS upgrades and
+rollbacks. Rolling back to a release without EFI sync support disables the EFI
+entrypoints so the older release can continue booting and updating through ABL.
+
+GitHub Actions runs the boot integration tests before building the container or
+disk image. Device testing should cover booting, upgrading, and rolling back
+with Propeller and ROCKNIX ABL, on both SD and internal storage.
 
 ```console
 $ just check     # Run the test suite and check recipe formatting
