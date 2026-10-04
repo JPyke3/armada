@@ -41,8 +41,15 @@ concurrency:
   queue: max
 
 jobs:
+  boot-tests:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/boot-tests.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+
   prepare:
-    name: Prepare disk builds
+    name: Prepare disk build
     runs-on: ubuntu-24.04
     permissions: {}
     outputs:
@@ -126,17 +133,9 @@ jobs:
           echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
 
   build:
-    name: Build ${{ matrix.label }} disk image
-    needs: prepare
+    name: Build disk image
+    needs: [prepare, boot-tests]
     runs-on: ubuntu-24.04-arm
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - variant: abl
-            label: ABL
-          - variant: efi
-            label: EFI
     permissions:
       contents: read
 
@@ -163,7 +162,7 @@ jobs:
       - name: Install just
         uses: ublue-os/just-action@30ab4659369934b65b655bf8d2fa4ddd6547d384 # v3
 
-      - name: Build ${{ matrix.label }} disk image
+      - name: Build disk image
         env:
           ARMADA_IMAGE_DIGEST: ${{ needs.prepare.outputs.digest }}
         run: |
@@ -175,38 +174,36 @@ jobs:
           # points at ghcr (so OTA works). The Justfile pulls the ref for BIB.
           sudo env PATH="${PATH}" ARMADA_IMAGE_DIGEST="${ARMADA_IMAGE_DIGEST}" \
             "${JUST_BIN}" build-armada-image "${IMAGE_REGISTRY}/${IMAGE_NAME}" \
-            "${{ needs.prepare.outputs.tag }}" "${{ matrix.variant }}"
+            "${{ needs.prepare.outputs.tag }}"
           sudo chown -R "$(id -u):$(id -g)" output
 
-      - name: Prepare ${{ matrix.label }} disk image upload
-        env:
-          VARIANT: ${{ matrix.variant }}
+      - name: Prepare disk image upload
         run: |
           set -euo pipefail
           shopt -s nullglob
-          images=(output/armada-*-"${VARIANT}".img.gz)
+          images=(output/armada-*.img.gz)
           if [ "${#images[@]}" -ne 1 ] || [ ! -s "${images[0]}" ]; then
-            echo "::error::Expected exactly one nonempty ${VARIANT^^} disk image in output/."
+            echo "::error::Expected exactly one nonempty disk image in output/."
             exit 1
           fi
           filename="${images[0]##*/}"
           (cd output && sha256sum "${filename}" > "${filename}.sha256")
           echo "\`${filename}\` ($(du -h "${images[0]}" | cut -f1))" >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Upload ${{ matrix.label }} disk image
+      - name: Upload disk image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: armada-disk-image-${{ matrix.variant }}
+          name: armada-disk-image
           path: |
-            output/armada-*-${{ matrix.variant }}.img.gz
-            output/armada-*-${{ matrix.variant }}.img.gz.sha256
+            output/armada-*.img.gz
+            output/armada-*.img.gz.sha256
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
           overwrite: true
 
   publish:
-    name: Publish disk images
+    name: Publish disk image
     needs: [prepare, build]
     if: inputs.publish_r2
     runs-on: ubuntu-24.04-arm
@@ -220,7 +217,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.revision }}
           persist-credentials: false
 
-      - name: Download disk images
+      - name: Download disk image
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -228,8 +225,7 @@ jobs:
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "${GITHUB_ENV}"
           echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> "${GITHUB_ENV}"
           mkdir -p output
-          gh run download "${GITHUB_RUN_ID}" --name armada-disk-image-abl --dir output
-          gh run download "${GITHUB_RUN_ID}" --name armada-disk-image-efi --dir output
+          gh run download "${GITHUB_RUN_ID}" --name armada-disk-image --dir output
 
       - name: Publish disk image to R2
         id: publish
@@ -246,17 +242,14 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          abl_images=(output/armada-*-abl.img.gz)
-          efi_images=(output/armada-*-efi.img.gz)
-          if [ "${#abl_images[@]}" -ne 1 ] || [ "${#efi_images[@]}" -ne 1 ]; then
-            echo "::error::Expected one ABL and one EFI disk image from the parallel builds."
+          images=(output/armada-*.img.gz)
+          if [ "${#images[@]}" -ne 1 ] || [ ! -s "${images[0]}" ]; then
+            echo "::error::Expected exactly one nonempty disk image."
             exit 1
           fi
-          abl="${abl_images[0]}"
-          efi="${efi_images[0]}"
-          (cd output && sha256sum -c "${abl##*/}.sha256" "${efi##*/}.sha256")
-          abl_filename="${abl##*/}"
-          efi_filename="${efi##*/}"
+          image="${images[0]}"
+          (cd output && sha256sum -c "${image##*/}.sha256")
+          filename="${image##*/}"
           prefix="${R2_PREFIX#/}"
           prefix="${prefix%/}"
 
@@ -278,7 +271,7 @@ jobs:
           commit_title=$(git show -s --format=%s "${BUILD_COMMIT}")
           # The high-level S3 command handles multipart uploads for large images.
           aws configure set default.s3.multipart_chunksize 64MB
-          for file in "${abl}" "${abl}.sha256" "${efi}" "${efi}.sha256"; do
+          for file in "${image}" "${image}.sha256"; do
             key="${prefix}/${file##*/}"
             aws s3 cp "${file}" "s3://${R2_BUCKET}/${key}" \
               --endpoint-url "${R2_ENDPOINT_URL}" \
@@ -294,11 +287,9 @@ jobs:
           done
 
           require_current_channel
-          version="${abl_filename#armada-}"
-          version="${version%-abl.img.gz}"
-          [ "${efi_filename}" = "armada-${version}-efi.img.gz" ]
-          read -r abl_sha256 _ < "${abl}.sha256"
-          read -r efi_sha256 _ < "${efi}.sha256"
+          version="${filename#armada-}"
+          version="${version%.img.gz}"
+          read -r image_sha256 checksum_filename < "${image}.sha256"
           jq -n \
             --arg version "${version}" \
             --arg published_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -306,25 +297,17 @@ jobs:
             --arg build_commit_title "${commit_title}" \
             --arg container "${IMAGE_REGISTRY}/${IMAGE_NAME}:${CONTAINER_TAG}" \
             --arg digest "${CONTAINER_DIGEST}" \
-            --arg abl_filename "${abl_filename}" \
-            --arg efi_filename "${efi_filename}" \
-            --arg abl_key "${prefix}/${abl_filename}" \
-            --arg efi_key "${prefix}/${efi_filename}" \
+            --arg filename "${filename}" \
+            --arg key "${prefix}/${filename}" \
             --arg public_url "${R2_PUBLIC_URL%/}" \
-            --arg abl_sha256 "${abl_sha256}" \
-            --arg efi_sha256 "${efi_sha256}" \
-            --argjson abl_size "$(stat -c %s "${abl}")" \
-            --argjson efi_size "$(stat -c %s "${efi}")" \
+            --arg sha256 "${image_sha256}" \
+            --argjson size "$(stat -c %s "${image}")" \
             '{version: $version,
               published_at: $published_at, build_commit: $build_commit, build_commit_title: $build_commit_title,
               container: {reference: $container, digest: $digest},
-              images: {
-                abl: {filename: $abl_filename, key: $abl_key, url: ($public_url + "/" + $abl_key), size: $abl_size, sha256: $abl_sha256},
-                efi: {filename: $efi_filename, key: $efi_key, url: ($public_url + "/" + $efi_key), size: $efi_size, sha256: $efi_sha256}},
-              checksums: {
-                abl: {key: ($abl_key + ".sha256"), url: ($public_url + "/" + $abl_key + ".sha256")},
-                efi: {key: ($efi_key + ".sha256"), url: ($public_url + "/" + $efi_key + ".sha256")}}
-            } | .image = .images.abl | .checksum = .checksums.abl' \
+              image: {filename: $filename, key: $key, url: ($public_url + "/" + $key),
+                size: $size, sha256: $sha256},
+              checksum: {key: ($key + ".sha256"), url: ($public_url + "/" + $key + ".sha256")}}' \
             > output/current-build.json
           publisher=.github/scripts/publish-channel-index.py
           # Historical Preview source commits use the original publisher filename.
@@ -334,18 +317,17 @@ jobs:
           python3 "${publisher}"
 
           # Only advertise the download after both objects have been uploaded.
-          echo "image_key=${prefix}/${abl_filename}" >> "${GITHUB_OUTPUT}"
-          echo "checksum_key=${prefix}/${abl_filename}.sha256" >> "${GITHUB_OUTPUT}"
-          echo "efi_image_key=${prefix}/${efi_filename}" >> "${GITHUB_OUTPUT}"
+          echo "image_key=${prefix}/${filename}" >> "${GITHUB_OUTPUT}"
+          echo "checksum_key=${prefix}/${filename}.sha256" >> "${GITHUB_OUTPUT}"
           {
-            printf '### Disk images uploaded to R2\n\n'
+            printf '### Disk image uploaded to R2\n\n'
             printf 'Container: `%s/%s:%s`\n\n' "${IMAGE_REGISTRY}" "${IMAGE_NAME}" "${CONTAINER_TAG}"
-            printf 'ABL: `s3://%s/%s/%s`\n\n' "${R2_BUCKET}" "${prefix}" "${abl_filename}"
-            printf 'EFI: `s3://%s/%s/%s`\n\n' "${R2_BUCKET}" "${prefix}" "${efi_filename}"
+            printf 'Image: `s3://%s/%s/%s`\n\n' "${R2_BUCKET}" "${prefix}" "${filename}"
+            printf 'Checksum: `s3://%s/%s/%s.sha256`\n\n' "${R2_BUCKET}" "${prefix}" "${filename}"
             if [ -n "${R2_PUBLIC_URL}" ]; then
-              printf '[Download ABL](%s/%s/%s) · [Download EFI](%s/%s/%s)\n' \
-                "${R2_PUBLIC_URL%/}" "${prefix}" "${abl_filename}" \
-                "${R2_PUBLIC_URL%/}" "${prefix}" "${efi_filename}"
+              printf '[Download image](%s/%s/%s) · [SHA-256](%s/%s/%s.sha256)\n' \
+                "${R2_PUBLIC_URL%/}" "${prefix}" "${filename}" \
+                "${R2_PUBLIC_URL%/}" "${prefix}" "${filename}"
               printf '\n[Channel builds](%s/%s/builds.json)\n' "${R2_PUBLIC_URL%/}" "${prefix}"
             fi
           } >> "${GITHUB_STEP_SUMMARY}"

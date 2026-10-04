@@ -1,11 +1,11 @@
 #!/bin/bash
-# Post-BIB: stage ROCKNIX ABL files and compress.
+# Post-BIB: stage ABL and EFI boot files and compress.
 
 set -euxo pipefail
 
 RAW_IMAGE="${1:-output/raw/disk.raw}"
 source "$(dirname "${BASH_SOURCE[0]}")/../abl/release.env"
-OUT="${OUT:-output/armada-$(TZ='America/New_York' date +%Y%m%d)-abl.img.gz}"
+OUT="${OUT:-output/armada-$(TZ='America/New_York' date +%Y%m%d).img.gz}"
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 ABL_RELEASES="${REPO_ROOT}/abl/releases.tsv"
 ABL_CATALOG_TOOL="${REPO_ROOT}/system_files/usr/lib/armada/abl-version"
@@ -18,7 +18,7 @@ if [[ ! -f "${RAW_IMAGE}" ]]; then
 fi
 
 WORK=$(mktemp -d)
-trap "sudo umount '${WORK}/mnt' 2>/dev/null || true; sudo losetup -d \"\$(cat ${WORK}/loop 2>/dev/null)\" 2>/dev/null || true; rm -rf '${WORK}'" EXIT
+trap "sudo umount '${WORK}/mnt' '${WORK}/boot' '${WORK}/root' 2>/dev/null || true; sudo losetup -d \"\$(cat ${WORK}/loop 2>/dev/null)\" 2>/dev/null || true; rm -rf '${WORK}'" EXIT
 
 LOOP=$(sudo losetup -fP --show "${RAW_IMAGE}")
 echo "${LOOP}" > "${WORK}/loop"
@@ -34,9 +34,17 @@ fi
 mkdir -p "${WORK}/mnt"
 sudo mount "${ESP}" "${WORK}/mnt"
 
-sudo mkdir -p "${WORK}/mnt/armada"
-printf 'ARMADA_BOOT_BACKEND=abl\nARMADA_BOOT_CONTRACT=1\n' \
-    | sudo tee "${WORK}/mnt/armada/backend.conf" >/dev/null
+mkdir -p "${WORK}/boot" "${WORK}/root"
+sudo mount -o ro "${LOOP}p2" "${WORK}/boot"
+sudo mount -o ro,subvol=root "${LOOP}p3" "${WORK}/root"
+deploy=$(sudo find "${WORK}/root/ostree/deploy/default/deploy" -mindepth 1 -maxdepth 1 -type d | head -1)
+usr=${deploy}/usr
+sudo test -s "${WORK}/mnt/KERNEL"
+sudo env ESP="${WORK}/mnt" BOOTROOT="${WORK}/boot" SYSROOT="${WORK}/root" \
+    ARGS_FILE="${usr}/lib/armada/bootimg-args" CMDLINE=/dev/null \
+    "${usr}/libexec/armada/armada-efi-update"
+sudo test -s "${WORK}/mnt/EFI/BOOT/BOOTAA64.EFI"
+sudo cp -r "${REPO_ROOT}/efi/adtbloader" "${WORK}/mnt/adtbloader"
 
 sudo mkdir -p "${WORK}/mnt/rocknix_abl"
 # One image serves all devices, so stage a self-contained folder per SoC.
@@ -70,10 +78,8 @@ for soc in SM8250 SM8550 SM8650 SM8750; do
     sudo chmod 0755 "$d"/*.sh
 done
 
-# Disable GRUB so ABL falls through to /KERNEL.
-if [ -d "${WORK}/mnt/EFI" ]; then sudo mv "${WORK}/mnt/EFI" "${WORK}/mnt/EFI.disabled"; fi
 sudo sync
-sudo umount "${WORK}/mnt"
+sudo umount "${WORK}/mnt" "${WORK}/boot" "${WORK}/root"
 
 # Android shows this label when copying the ABL
 sudo fatlabel "${ESP}" ARMADA
