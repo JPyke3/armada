@@ -171,6 +171,16 @@ done
 
 {
     printf 'ARMADA_DEFAULT_VERSION=%s\n' "${default_version}"
+    if [ -x "${deploy}/usr/libexec/armada/device-env" ]; then
+        while read -r name; do
+            model=$(fdtget -t s "${dtbs}/${name}.dtb" / model)
+            rotation=$(ARMADA_MODEL="${model}" ARMADA_DEVICE_DIR="${deploy}/usr/lib/armada/devices" \
+                "${deploy}/usr/libexec/armada/device-env" | sed -n 's/^ARMADA_EFI_ROTATION=//p')
+            case "${rotation}" in
+                0|90|180|270) printf 'ARMADA_EFI_ROTATION=%s:%s\n' "${model}" "${rotation}" ;;
+            esac
+        done < "${dtb_list}"
+    fi
     if [ -n "${rollback_ready}" ]; then
         printf 'ARMADA_ROLLBACK_ENTRY=%s\n' "${rollback_entry}"
         printf 'ARMADA_ROLLBACK_VERSION=%s\n' "${rollback_version}"

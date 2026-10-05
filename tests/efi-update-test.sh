@@ -22,6 +22,8 @@ printf grub > "${esp}/EFI.disabled/old-grub"
 for target in "${deploy}" "${rollback_deploy}"; do
     cp "${UPDATE}" "${target}/usr/libexec/armada/armada-efi-update"
     chmod +x "${target}/usr/libexec/armada/armada-efi-update"
+    cp "${ROOT}/system_files/usr/libexec/armada/device-env" "${target}/usr/libexec/armada/device-env"
+    cp -r "${ROOT}/system_files/usr/lib/armada/devices" "${target}/usr/lib/armada/devices"
 done
 export LOCK_FILE=${work}/efi.lock
 mkdir -p "${esp}/EFI/BOOT/theme" "${esp}/EFI/refind" "${esp}/EFI/systemd/drivers" \
@@ -59,6 +61,10 @@ printf initrd-old > "${rollback_bootdir}/initramfs"
 mkdir -p "${esp}/ostree/stale" "${esp}/loader/entries"
 printf stale > "${esp}/loader/entries/stale.conf"
 printf 'qcs8550-ayn-thor\nqcs8550-new-device\n' > "${deploy}/usr/lib/armada/supported-dtbs"
+for name in rotation-evo rotation-odin3 rotation-rp6-top; do
+    printf dtb > "${bootdir}/dtb/qcom/${name}.dtb"
+    printf '%s\n' "${name}" >> "${deploy}/usr/lib/armada/supported-dtbs"
+done
 cat > "${boot}/loader/entries/ostree-1.conf" <<EOF
 title old
 version 2
@@ -82,6 +88,9 @@ cat > "${work}/bin/fdtget" <<'EOF'
 case "$3" in
     *qcs8550-ayn-thor.dtb) printf 'AYN Thor\n' ;;
     *qcs8550-new-device.dtb) printf 'New Handheld\n' ;;
+    *rotation-evo.dtb) printf 'AYANEO Pocket EVO\n' ;;
+    *rotation-odin3.dtb) printf 'AYN Odin 3\n' ;;
+    *rotation-rp6-top.dtb) printf 'Retroid Pocket 6 TOP-DPAD\n' ;;
     *) exit 1 ;;
 esac
 EOF
@@ -138,6 +147,10 @@ grep -qx 'initrd /ostree/default-test/initramfs' "${esp}/loader/entries/ostree-1
 ! grep -q '^fdtdir ' "${esp}/loader/entries/ostree-1.conf"
 ! grep -q '^ARMADA_BOOT_' "${esp}/armada/backend.conf"
 grep -qx 'ARMADA_DEFAULT_VERSION=20260930.current' "${esp}/armada/backend.conf"
+grep -Fxq 'ARMADA_EFI_ROTATION=AYANEO Pocket EVO:90' "${esp}/armada/backend.conf"
+grep -Fxq 'ARMADA_EFI_ROTATION=AYN Odin 3:270' "${esp}/armada/backend.conf"
+grep -Fxq 'ARMADA_EFI_ROTATION=Retroid Pocket 6 TOP-DPAD:90' "${esp}/armada/backend.conf"
+! grep -Eq '^ARMADA_EFI_ROTATION=(AYN Thor|New Handheld):' "${esp}/armada/backend.conf"
 grep -qx 'ARMADA_ROLLBACK_ENTRY=ostree-rollback.conf' "${esp}/armada/backend.conf"
 grep -qx 'ARMADA_ROLLBACK_VERSION=20260924.previous' "${esp}/armada/backend.conf"
 grep -qx 'ARMADA_ROLLBACK_DTBS=/ostree/default-rollback/dtb/qcom' "${esp}/armada/backend.conf"
@@ -214,6 +227,24 @@ run_update() {
 }
 run_update
 cmp "${work}/original-entry" "${boot}/loader/entries/ostree-1.conf"
+
+profile=${deploy}/usr/lib/armada/devices/ayaneo-pocket-evo.conf
+sed -i 's/ARMADA_EFI_ROTATION=90/ARMADA_EFI_ROTATION=180/' "${profile}"
+run_update
+grep -Fxq 'ARMADA_EFI_ROTATION=AYANEO Pocket EVO:180' "${esp}/armada/backend.conf"
+sed -i 's/ARMADA_EFI_ROTATION=180/ARMADA_EFI_ROTATION=45/' "${profile}"
+run_update
+! grep -q '^ARMADA_EFI_ROTATION=AYANEO Pocket EVO:' "${esp}/armada/backend.conf"
+sed -i '/^ARMADA_EFI_ROTATION=/d' "${profile}"
+run_update
+! grep -q '^ARMADA_EFI_ROTATION=AYANEO Pocket EVO:' "${esp}/armada/backend.conf"
+cp "${ROOT}/system_files/usr/lib/armada/devices/ayaneo-pocket-evo.conf" "${profile}"
+mv "${deploy}/usr/libexec/armada/device-env" "${work}/device-env"
+run_update
+! grep -q '^ARMADA_EFI_ROTATION=' "${esp}/armada/backend.conf"
+mv "${work}/device-env" "${deploy}/usr/libexec/armada/device-env"
+run_update
+grep -Fxq 'ARMADA_EFI_ROTATION=AYANEO Pocket EVO:90' "${esp}/armada/backend.conf"
 
 # A new kernel deployment changes both BLS paths; EFI must follow without touching the originals.
 cp -r "${deploy}" "${deploy%/*}/next.0"
