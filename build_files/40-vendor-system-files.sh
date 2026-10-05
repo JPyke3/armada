@@ -42,6 +42,7 @@ bootloader=/usr/lib/armada/efi/armada-boot.efi
 curl --connect-timeout 30 --retry 3 -fsSL -o "${bootloader}" \
     "https://github.com/armada-os/armada-efi/releases/download/${ARMADA_BOOT_VERSION}/armada-boot-${ARMADA_BOOT_VERSION}.efi"
 echo "${ARMADA_BOOT_SHA256}  ${bootloader}" | sha256sum -c -
+printf '%s\n' "${ARMADA_BOOT_VERSION}" > "${bootloader%/*}/version"
 
 source /ctx/abl/release.env
 abl_releases=/ctx/abl/releases.tsv
@@ -99,6 +100,7 @@ systemctl enable armada-input-calibration.service
 systemctl enable armada-controller-type.service
 systemctl enable inputplumber.service
 systemctl enable armada-guestos.service
+systemctl enable usr-share-guestos-android.mount
 systemctl enable armada-device-quirks.service
 systemctl enable armada-rgb.service
 systemctl enable armada-fixups.service
@@ -113,7 +115,6 @@ systemctl --global enable steamos-manager-session-cleanup.service
 systemctl --global enable armada-steam-default-session.service
 systemctl --global enable armada-steam-charging-eta.service
 systemctl enable armada-bootimg-sync.service
-systemctl enable armada-efi-sync.service
 systemctl enable armada-esp-rename.service
 systemctl enable armada-boot-hotkeys.service
 systemctl enable armada-flatpak-setup.service

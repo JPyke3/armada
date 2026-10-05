@@ -88,6 +88,13 @@ def abl_auto_enabled():
         return False
 
 
+def boot_backend():
+    try:
+        return str(call("get_boot_backend").get("backend") or "unknown")
+    except Exception:
+        return "unknown"
+
+
 def os_version():
     return read_text(OS_VERSION_PATH) or "unknown"
 
@@ -99,11 +106,29 @@ def abl_version():
         return "unknown"
 
 
+def efi_version():
+    try:
+        return str(call("get_efi_version").get("version") or "unknown")
+    except Exception:
+        return "unknown"
+
+
 def read_text(path):
     try:
         return path.read_text(encoding="utf-8", errors="replace").strip()
     except OSError:
         return ""
+
+
+def swipe_gestures_enabled():
+    try:
+        return bool(call("get_swipe_gestures_enabled")["enabled"])
+    except Exception:
+        return True
+
+
+def set_swipe_gestures_enabled(enabled):
+    return bool(call("set_swipe_gestures_enabled", enabled=enabled)["enabled"])
 
 
 def set_ssh_enabled(enabled):

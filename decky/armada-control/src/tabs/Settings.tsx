@@ -16,6 +16,7 @@ import {
   setSleepMode as applySleepMode,
   setSleepLogsEnabled as applySleepLogsEnabled,
   setSshEnabled as applySshEnabled,
+  setSwipeGesturesEnabled as applySwipeGesturesEnabled,
 } from "../backend";
 import { openCalibration } from "../components/Calibration";
 import { SelectEdit, SliderEdit, ToggleRow } from "../components/widgets";
@@ -32,6 +33,7 @@ export function Settings({ config, setConfig }: {
   config: Config;
   setConfig: Dispatch<SetStateAction<Config | null>>;
 }) {
+  const [swipeGesturesSaving, setSwipeGesturesSaving] = useState(false);
   const [sleepLogsEnabled, setSleepLogsEnabled] = useState<boolean | null>(null);
   const [sleepLogsSaving, setSleepLogsSaving] = useState(false);
   const setBottomScreenBrightness = useDebouncedApply(
@@ -126,6 +128,18 @@ export function Settings({ config, setConfig }: {
       setConfig((current) => (current ? { ...current, ablAutoEnabled: !enabled } : current));
     }
   };
+  const setSwipeGesturesEnabled = async (enabled: boolean) => {
+    if (swipeGesturesSaving) return;
+    setSwipeGesturesSaving(true);
+    try {
+      const applied = await applySwipeGesturesEnabled(enabled);
+      setConfig((current) => (current ? { ...current, swipeGesturesEnabled: applied } : current));
+    } catch (error) {
+      toaster.toast({ title: t("settings.swipeGesturesError"), body: String(error) });
+    } finally {
+      setSwipeGesturesSaving(false);
+    }
+  };
   const setBottomScreenEnabled = async (enabled: boolean) => {
     if (enabled === !!config.bottomScreenEnabled) {
       return;
@@ -186,6 +200,13 @@ export function Settings({ config, setConfig }: {
         <ButtonItem layout="below" onClick={openCalibration}>{t("calibration.launch")}</ButtonItem>
       </PanelSection>
       <PanelSection title={t("settings.system")}>
+        <ToggleRow
+          label={t("settings.swipeGestures")}
+          description={t("settings.swipeGesturesDescription")}
+          value={config.swipeGesturesEnabled}
+          disabled={swipeGesturesSaving}
+          onChange={setSwipeGesturesEnabled}
+        />
         <SelectEdit
           label={t("settings.sleepMode")}
           value={config.sleepMode || "s2idle"}
@@ -194,7 +215,11 @@ export function Settings({ config, setConfig }: {
         />
         <ToggleRow label={t("settings.enableSsh")} value={!!config.sshEnabled} onChange={setSshEnabled} />
         <Field label={t("settings.osVersion")} description={config.osVersion || t("common.unknown")} />
-        <Field label={t("settings.ablVersion")} description={config.ablVersion || t("common.unknown")} />
+        {config.bootBackend === "efi" ? (
+          <Field label={t("settings.efiVersion")} description={config.efiVersion || t("common.unknown")} />
+        ) : (
+          <Field label={t("settings.ablVersion")} description={config.ablVersion || t("common.unknown")} />
+        )}
       </PanelSection>
       <PanelSection title={t("settings.experimental")}>
         {config.bottomScreenSupported && (
@@ -242,12 +267,14 @@ export function Settings({ config, setConfig }: {
           value={!!config.mtpEnabled}
           onChange={setMtpEnabled}
         />
-        <ToggleRow
-          label={t("settings.automaticAblUpdates")}
-          description={t("settings.updatesDuringShutdown")}
-          value={!!config.ablAutoEnabled}
-          onChange={setAblAutoEnabled}
-        />
+        {config.bootBackend !== "efi" && (
+          <ToggleRow
+            label={t("settings.automaticAblUpdates")}
+            description={t("settings.updatesDuringShutdown")}
+            value={!!config.ablAutoEnabled}
+            onChange={setAblAutoEnabled}
+          />
+        )}
       </PanelSection>
       <PanelSection title={t("settings.diagnostics")}>
         <ToggleRow

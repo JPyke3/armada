@@ -2,36 +2,21 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-FINALIZE=${ROOT}/post_process/finalize-efi-image.sh
-
+FINALIZE=${ROOT}/post_process/finalize-armada-image.sh
 bash -n "${FINALIZE}"
-grep -Fq '0fc63daf-8483-4772-8e79-3d69d8477de4' "${FINALIZE}"
+grep -Fq 'sudo sfdisk --label dos' "${FINALIZE}"
 grep -Fq '"${usr}/libexec/armada/armada-efi-update"' "${FINALIZE}"
-grep -Fq 'BACKEND="${usr}/libexec/armada/armada-boot-backend"' "${FINALIZE}"
-grep -Fq 'ARGS_FILE="${usr}/lib/armada/bootimg-args"' "${FINALIZE}"
-grep -Fq '"${ROOT}/efi/adtbloader" "${WORK}/esp/adtbloader"' "${FINALIZE}"
-grep -Fq 'ARMADA_BOOT_BACKEND=efi' "${FINALIZE}"
-grep -Fq 'bootprefix=false' "${FINALIZE}"
-grep -Fq 'subvol=root' "${FINALIZE}"
-grep -Fq " /boot auto rw " "${FINALIZE}"
-! grep -Fq 'systemd-bootaa64.efi' "${FINALIZE}"
-! grep -Fq 'loader/entries' "${FINALIZE}"
+grep -Fq '"${REPO_ROOT}/efi/adtbloader" "${WORK}/mnt/adtbloader"' "${FINALIZE}"
+grep -Fq 'mount -o ro ' "${FINALIZE}"
+grep -Fq 'mount -o ro,subvol=root ' "${FINALIZE}"
+! grep -Eq 'bootprefix|fstab|EFI.disabled|mkfs|part-type' "${FINALIZE}"
+! test -e "${ROOT}/post_process/finalize-efi-image.sh"
 bash -n "${ROOT}/efi/adtbloader/describe_android_dt.sh"
-grep -Fq '/sdcard/adtbloader/active-dtbo.img' "${ROOT}/efi/adtbloader/describe_android_dt.sh"
 
 recipe=$(sed -n '/^build-armada-image /,/^\[group/p' "${ROOT}/Justfile")
-grep -Fq 'disk-abl.raw' <<< "${recipe}"
-grep -Fq 'disk-efi.raw' <<< "${recipe}"
-grep -Fq -- '-abl.img.gz' <<< "${recipe}"
-grep -Fq -- '-efi.img.gz' <<< "${recipe}"
-grep -Fq 'abl|efi|all' <<< "${recipe}"
-grep -Fq 'abl_pid=$!' <<< "${recipe}"
-grep -Fq 'efi_pid=$!' <<< "${recipe}"
-
-grep -Fq 'Expected ABL and EFI disk images' "${ROOT}/.github/workflows/pr.yml"
-grep -Fq 'armada-disk-pr${{ github.event.pull_request.number }}-abl' "${ROOT}/.github/workflows/pr.yml"
-grep -Fq 'armada-disk-pr${{ github.event.pull_request.number }}-efi' "${ROOT}/.github/workflows/pr.yml"
-grep -Fq '^armada-disk-pr[0-9]+-(abl|efi)$' "${ROOT}/.github/workflows/pr-disk-link.yml"
-grep -Fq 'name: Build ${{ matrix.label }} disk image' "${ROOT}/.github/workflows/build-disk.yml"
-grep -Fq 'armada-disk-image-${{ matrix.variant }}' "${ROOT}/.github/workflows/build-disk.yml"
-grep -Fq 'Expected one ABL and one EFI disk image from the parallel builds.' "${ROOT}/.github/workflows/build-disk.yml"
+grep -Fq './post_process/make-bootimg.sh output/image/disk.raw' <<< "${recipe}"
+grep -Fq './post_process/finalize-armada-image.sh output/image/disk.raw' <<< "${recipe}"
+! grep -Eq 'variant|disk-abl|disk-efi|-abl.img|-efi.img' <<< "${recipe}"
+grep -Fq 'name: armada-disk-pr${{ github.event.pull_request.number }}' "${ROOT}/.github/workflows/pr.yml"
+grep -Fq 'name: armada-disk-image' "${ROOT}/.github/workflows/build-disk.yml"
+! grep -Eq 'matrix|disk-image-abl|disk-image-efi' "${ROOT}/.github/workflows/build-disk.yml"

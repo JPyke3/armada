@@ -21,6 +21,7 @@ case "$model" in
     "AYANEO Pocket ACE") profile=ayaneo-pocket-ace ;;
     "AYANEO Pocket DMG") profile=ayaneo-pocket-dmg ;;
     "AYANEO Pocket DS") profile=ayaneo-pocket-ds ;;
+    "AYANEO Pocket MICRO 2") profile=ayaneo-pocket-micro2 ;;
     "AYANEO Pocket S 1K") profile=ayaneo-pocket-s1k ;;
     "AYANEO Pocket S 2K") profile=ayaneo-pocket-s2k ;;
     "AYANEO Pocket S2") profile=ayaneo-pocket-s2 ;;
@@ -87,8 +88,7 @@ case "${ARMADA_SOC_CLASS:-}" in
         : "${ARMADA_LITTLE_CORES=0-2}"
         : "${ARMADA_BIG_CORES=3-7}"
         : "${ARMADA_PRIME_CORES=7}"
-        # The A740 GMU wedges if a GPU interrupt wakes CPU 0-2 out of power collapse
-        : "${ARMADA_IRQ_CORES=3-7}"
+        : "${ARMADA_IRQ_CORES=0-2}"
         ;;
     SM8650)
         : "${ARMADA_LITTLE_CORES=0-1}"
@@ -120,6 +120,7 @@ vars=(
     ARMADA_SECONDARY_TOUCHSCREEN
     ARMADA_PANEL_TYPE
     ARMADA_PANEL_ORIENTATION
+    ARMADA_EFI_ROTATION
     ARMADA_GAMESCOPE_USE_ROTATION_SHADER
     ARMADA_GAMESCOPE_FAKE_OUTPUT_MM
     ARMADA_HDR_NITS

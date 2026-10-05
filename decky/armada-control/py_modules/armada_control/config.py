@@ -5,10 +5,12 @@ from .steam import installed_games
 from .system import (
     abl_auto_enabled,
     abl_version,
+    boot_backend,
     bottom_screen_brightness,
     bottom_screen_active,
     bottom_screen_enabled,
     device_env,
+    efi_version,
     mtp_enabled,
     os_version,
     perf_info,
@@ -16,8 +18,15 @@ from .system import (
     desktop_modes,
     sleep_modes,
     ssh_enabled,
+    swipe_gestures_enabled,
 )
-from .tweaks import fex_profile_labels, load_env_presets, load_fex_contract, load_tweaks
+from .tweaks import (
+    fex_profile_labels,
+    load_env_presets,
+    load_fex_contract,
+    load_tweaks,
+    turnip_drivers,
+)
 
 
 def build_config(include_games=True):
@@ -25,12 +34,14 @@ def build_config(include_games=True):
     env = device_env()
     secondary_brightness = bottom_screen_brightness()
     power = parse_power()
+    backend = boot_backend()
     return {
         "power": power,
         "powerDefaults": factory_power_defaults(),
         "tweaks": load_tweaks(),
         "installedGames": installed_games() if include_games else [],
         "fexProfiles": fex_profile_labels(fex_contract),
+        "turnipDrivers": turnip_drivers(),
         "envPresets": load_env_presets(),
         "perf": perf_info(),
         "cpuDeviceClass": env.get("ARMADA_SOC_CLASS", ""),
@@ -40,9 +51,11 @@ def build_config(include_games=True):
             for default in env.get("ARMADA_PROTON_DEFAULTS", "").split(":")
             if default.strip()
         ],
+        "bootBackend": backend,
         "osVersion": os_version(),
-        "ablVersion": abl_version(),
-        "ablAutoEnabled": abl_auto_enabled(),
+        "ablVersion": abl_version() if backend != "efi" else "",
+        "efiVersion": efi_version() if backend == "efi" else "",
+        "ablAutoEnabled": abl_auto_enabled() if backend != "efi" else False,
         "bottomScreenSupported": bool(
             env.get("ARMADA_SECONDARY_CONNECTOR") and env.get("ARMADA_SECONDARY_TOUCHSCREEN")
         ),
@@ -52,6 +65,7 @@ def build_config(include_games=True):
         "bottomScreenBrightness": secondary_brightness or 0,
         "chargingFanPwm": int(power["fan"].get("charging_pwm", 0)),
         "sshEnabled": ssh_enabled(),
+        "swipeGesturesEnabled": swipe_gestures_enabled(),
         "mtpEnabled": mtp_enabled(),
         "desktopMode": desktop_mode(),
         "desktopModes": desktop_modes(),
