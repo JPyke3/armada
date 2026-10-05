@@ -246,7 +246,7 @@ rm "${work}/bin/df"
 
 cat > "${work}/bin/cp" <<'EOF'
 #!/bin/sh
-case "$*" in *drivers_aa64*) exit 1 ;; esac
+case "$*" in *drivers_aa64*) printf partial > "$3"; exit 1 ;; esac
 exec /usr/bin/cp "$@"
 EOF
 chmod +x "${work}/bin/cp"
@@ -257,7 +257,19 @@ fi
 ! test -e "${esp}/EFI/BOOT/BOOTAA64.EFI"
 ! test -e "${esp}/EFI/systemd/systemd-bootaa64.efi"
 rm "${work}/bin/cp"
+test -s "${esp}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi.new"
+cat > "${work}/bin/df" <<'EOF'
+#!/bin/sh
+if [ -e "${ESP}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi.new" ]; then
+    printf 'Avail\n0\n'
+else
+    exec /usr/bin/df "$@"
+fi
+EOF
+chmod +x "${work}/bin/df"
 run_update
+rm "${work}/bin/df"
+! test -e "${esp}/EFI/BOOT/drivers_aa64/adtbloaderaa64.efi.new"
 cmp "${deploy}/usr/lib/armada/efi/armada-boot.efi" "${esp}/EFI/BOOT/BOOTAA64.EFI"
 
 # Old deployments must boot /KERNEL rather than leave stale EFI files in control.

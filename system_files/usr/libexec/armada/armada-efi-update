@@ -184,6 +184,7 @@ sources=() targets=()
 needed=$((4 * 1024 * 1024))
 cluster=$(stat -f -c %S "${ESP}")
 stage() {
+    rm -f "$2.new"
     cmp -s "$1" "$2" && return 0
     sources+=("$1") targets+=("$2")
     local size
