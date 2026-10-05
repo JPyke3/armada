@@ -73,6 +73,12 @@ the guides there rather than instructions copied from older releases or posts.
 
 ## Development
 
+Device profiles in `system_files/usr/lib/armada/devices/` may set
+`ARMADA_EFI_ROTATION` to 0, 90, 180, or 270 clockwise degrees for the firmware
+framebuffer. EFI sync writes these overrides to `/armada/backend.conf` on the
+ESP, keyed by each shipped DTB's model. Armada-EFI uses the active DTB's entry,
+falling back to panel rotation and then screen dimensions when none exists.
+
 This repository assembles the Armada bootc image and its flashable disk images,
 along with the upstream-derived packages it ships (see
 [`packages/`](packages/README.md)). The development recipes require
