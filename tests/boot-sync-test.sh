@@ -35,8 +35,10 @@ for failed in bootimg efi; do
     : > "${TRACE}"
     rm -f "${TRACE}.rolled-back"
     status=0
-    FAIL=${failed} "${ROOT}/system_files/usr/libexec/armada/armada-bootimg-finalize" || status=$?
+    FAIL=${failed} "${ROOT}/system_files/usr/libexec/armada/armada-bootimg-finalize" 2>"${work}/error" || status=$?
     [ "${status}" = 23 ]
+    case "${failed}" in bootimg) step=ABL ;; efi) step=EFI ;; esac
+    grep -Fxq "armada-boot-update: ${step} boot sync failed (status 23)" "${work}/error"
     {
         printf 'bootimg \n'
         [ "${failed}" != efi ] || printf 'efi \n'
