@@ -7,24 +7,30 @@ SYSROOT=${SYSROOT:-/}
 ARGS_FILE=${ARGS_FILE:-/usr/lib/armada/bootimg-args}
 CMDLINE=${CMDLINE:-/proc/cmdline}
 
-findmnt -rn "${ESP}" >/dev/null
+die() {
+    echo "armada-efi-update: $*" >&2
+    exit 1
+}
+
+findmnt -rn "${ESP}" >/dev/null || die "ESP is not mounted: ${ESP}"
 exec 9>"${LOCK_FILE:-/run/armada-efi.lock}"
-flock -w 30 9
+flock -w 30 9 || die "could not acquire EFI update lock within 30 seconds"
 . "${ARGS_FILE}"
 
 entry=$(armada_default_bls_entry "${BOOTROOT}")
-[ -n "${entry}" ]
+[ -n "${entry}" ] || die "no default BLS entry under ${BOOTROOT}/loader/entries"
 for key in linux initrd; do
     path=$(sed -n "s/^${key} //p" "${entry}" | head -1)
-    [ -n "${path}" ] && [ -s "${BOOTROOT}${path#/boot}" ]
+    [ -n "${path}" ] || die "missing ${key} path in ${entry}"
+    [ -s "${BOOTROOT}${path#/boot}" ] || die "missing or empty ${key}: ${BOOTROOT}${path#/boot}"
 done
 options=$(sed -n 's/^options //p' "${entry}" | head -1)
 ostree=
 for arg in ${options}; do
     case "${arg}" in ostree=*) ostree=${arg#ostree=} ;; esac
 done
-[ -n "${ostree}" ]
-deploy=$(realpath -e "${SYSROOT%/}${ostree}")
+[ -n "${ostree}" ] || die "missing ostree= option in ${entry}"
+deploy=$(realpath -e "${SYSROOT%/}${ostree}") || die "cannot resolve deployment: ${SYSROOT%/}${ostree}"
 # Older deployments only update /KERNEL; leave no EFI loader to shadow it.
 if [ ! -x "${deploy}/usr/libexec/armada/armada-efi-update" ]; then
     rm -f "${ESP}/EFI/BOOT/BOOTAA64.EFI" \
@@ -34,17 +40,17 @@ if [ ! -x "${deploy}/usr/libexec/armada/armada-efi-update" ]; then
     exit 0
 fi
 
-default_version=$(cat "${deploy}/usr/lib/armada/version")
-[ -n "${default_version}" ]
+default_version=$(cat "${deploy}/usr/lib/armada/version") || die "cannot read version for ${deploy}"
+[ -n "${default_version}" ] || die "empty version in ${deploy}/usr/lib/armada/version"
 loader=${deploy}/usr/lib/systemd/boot/efi/systemd-bootaa64.efi
 ext4=${deploy}/usr/share/edk2/drivers/ext4aa64.efi
 adtbloader=${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi
 armada_boot=${deploy}/usr/lib/armada/efi/armada-boot.efi
 dtb_list=${deploy}/usr/lib/armada/supported-dtbs
 for file in "${loader}" "${ext4}" "${adtbloader}" "${armada_boot}"; do
-    [ -s "${file}" ]
+    [ -s "${file}" ] || die "missing or empty EFI asset: ${file}"
 done
-[ -s "${dtb_list}" ]
+[ -s "${dtb_list}" ] || die "missing or empty supported DTB list: ${dtb_list}"
 
 choice=
 for arg in $(cat "${CMDLINE}" 2>/dev/null || true); do
@@ -59,7 +65,7 @@ if [ "${choice}" != auto ] && grep -Fxq "${choice}" "${dtb_list}"; then
 fi
 
 mapfile -t entries < <(find "${BOOTROOT}/loader/entries" -maxdepth 1 -name '*.conf' ! -name '*-dtb-*.conf' -type f | sort)
-[ "${#entries[@]}" -gt 0 ]
+[ "${#entries[@]}" -gt 0 ] || die "no BLS entries under ${BOOTROOT}/loader/entries"
 rollback=$(
     for file in "${entries[@]}"; do
         [ "${file}" != "${entry}" ] || continue
@@ -97,8 +103,8 @@ linux=$(sed -n 's/^linux //p' "${entry}" | head -1)
 linux=${linux#/boot}
 while read -r name; do
     dtb=${BOOTROOT}$(dirname "${linux}")/dtb/qcom/${name}.dtb
-    [ -f "${dtb}" ]
-    model=$(fdtget -t s "${dtb}" / model)
+    [ -f "${dtb}" ] || die "missing DTB: ${dtb}"
+    model=$(fdtget -t s "${dtb}" / model) || die "cannot read model from DTB: ${dtb}"
 done < "${dtb_list}"
 
 work=$(mktemp -d)
@@ -230,9 +236,9 @@ fi
 for i in "${!sources[@]}"; do
     target=${targets[i]}
     mkdir -p "$(dirname "${target}")"
-    cp -f "${sources[i]}" "${target}.new"
-    sync "${target}.new"
-    mv -f "${target}.new" "${target}"
+    cp -f "${sources[i]}" "${target}.new" || die "could not stage ${sources[i]} at ${target}.new"
+    sync "${target}.new" || die "could not sync ${target}.new"
+    mv -f "${target}.new" "${target}" || die "could not install ${target}"
 done
 
 rm -f "${ESP}/EFI/BOOT/refind.conf" \

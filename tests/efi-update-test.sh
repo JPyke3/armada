@@ -212,10 +212,11 @@ PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
 rm "${bootdir}/dtb/qcom/qcs8550-new-device.dtb"
 if PATH=${work}/bin:${PATH} ESP=${esp} BOOTROOT=${boot} SYSROOT=${sysroot} \
     CMDLINE=${work}/cmdline \
-    ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}" 2>/dev/null; then
+    ARGS_FILE=${ROOT}/system_files/usr/lib/armada/bootimg-args "${UPDATE}" 2>"${work}/error"; then
     echo "EFI update accepted a missing DTB in the default deployment" >&2
     exit 1
 fi
+grep -Fq "missing DTB: ${bootdir}/dtb/qcom/qcs8550-new-device.dtb" "${work}/error"
 
 cmp "${work}/original-entry" "${boot}/loader/entries/ostree-1.conf"
 [ "$(cat "${esp}/KERNEL")" = kernel ]
@@ -281,10 +282,11 @@ case "$*" in *drivers_aa64*) printf partial > "$3"; exit 1 ;; esac
 exec /usr/bin/cp "$@"
 EOF
 chmod +x "${work}/bin/cp"
-if run_update; then
+if run_update 2>"${work}/error"; then
     echo 'EFI setup ignored an interrupted copy' >&2
     exit 1
 fi
+grep -Fq "could not stage ${deploy}/usr/lib/armada/efi/drivers/adtbloaderaa64.efi" "${work}/error"
 ! test -e "${esp}/EFI/BOOT/BOOTAA64.EFI"
 ! test -e "${esp}/EFI/systemd/systemd-bootaa64.efi"
 rm "${work}/bin/cp"
