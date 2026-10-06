@@ -33,10 +33,18 @@ done
 deploy=$(realpath -e "${SYSROOT%/}${ostree}") || die "cannot resolve deployment: ${SYSROOT%/}${ostree}"
 # Older deployments only update /KERNEL; leave no EFI loader to shadow it.
 if [ ! -x "${deploy}/usr/libexec/armada/armada-efi-update" ]; then
-    rm -f "${ESP}/EFI/BOOT/BOOTAA64.EFI" \
+    disabled=
+    for file in "${ESP}/EFI/BOOT/BOOTAA64.EFI" \
         "${ESP}/EFI/Microsoft/Boot/bootmgfw.efi" \
-        "${ESP}/EFI/systemd/systemd-bootaa64.efi"
+        "${ESP}/EFI/systemd/systemd-bootaa64.efi"; do
+        [ -e "${file}" ] || continue
+        rm -f "${file}"
+        disabled=1
+    done
     sync
+    if [ -n "${disabled}" ]; then
+        echo "armada-efi-update: disabled EFI for older deployment ${deploy##*/}; using /KERNEL"
+    fi
     exit 0
 fi
 
@@ -260,3 +268,6 @@ for dtb in "${ESP}/dtbloader/dtbs/qcom"/*.dtb; do
 done
 [ -n "${selected}" ] || rm -f "${ESP}/armada/device"
 sync
+if [ "${#sources[@]}" -gt 0 ]; then
+    echo "armada-efi-update: synced ${#sources[@]} files for ${default_version} (device: ${selected:-auto})"
+fi
