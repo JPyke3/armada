@@ -10,6 +10,7 @@ if [[ -z "$model" ]]; then
     model=$(tr -d '\0' </sys/firmware/devicetree/base/model 2>/dev/null || true)
 fi
 case "$model" in
+    "Lenovo Yoga Slim 7x") profile=lenovo-yoga-slim7x ;;
     "AYANEO Pocket EVO") profile=ayaneo-pocket-evo ;;
     "AYN Odin 2") profile=ayn-odin-2 ;;
     "AYN Odin 2 Mini") profile=ayn-odin-2-mini ;;
@@ -125,6 +126,7 @@ vars=(
     ARMADA_GAMESCOPE_FAKE_OUTPUT_MM
     ARMADA_HDR_NITS
     ARMADA_GAMEPAD_QUIRK
+    ARMADA_BUILTIN_GAMEPAD
     ARMADA_IP_TARGETS
     ARMADA_LITTLE_CORES
     ARMADA_BIG_CORES

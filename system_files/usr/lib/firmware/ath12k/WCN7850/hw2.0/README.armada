@@ -1,0 +1,17 @@
+board-2.bin contains Armada's original handheld board and regulatory data,
+plus the Lenovo Yoga Slim 7x board entry:
+bus=pci,vendor=17cb,device=1107,subsystem-vendor=17aa,subsystem-device=e0e9,qmi-chip-id=2,qmi-board-id=255
+
+The Yoga payload was extracted without modification from Fedora's
+atheros-firmware-20260916-1.fc44.noarch, installed on a working Yoga.
+Upstream: https://gitlab.com/kernel-firmware/linux-firmware
+File: ath12k/WCN7850/hw2.0/board-2.bin (decompressed SHA256):
+1abee7132dbccb523cca44a8de4e8968aa7bf5a5fcc032c338f687f94ea5bf4e
+Yoga board payload SHA256:
+d4f92e9f11bc530d7287f346b96ad3f7e56e6ad6c12f2a0977b267a0ee274a6a
+
+Only the exact Yoga PCI/QMI name is appended; unrelated aliases from the
+source container are not imported. The original 113260 bytes are unchanged
+(SHA256 8cc9a64baf68681ece5e26a8445630749eccbfb4517bdbf6802856787afa7c2d).
+This preserves the existing handheld calibration and regulatory data.
+See Notice.txt for the firmware license.

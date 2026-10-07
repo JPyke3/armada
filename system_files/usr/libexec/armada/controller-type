@@ -18,7 +18,7 @@ CONTROLLER_TYPES = {
 }
 
 
-def available_types():
+def device_settings():
     try:
         result = subprocess.run(
             [DEVICE_ENV],
@@ -28,16 +28,20 @@ def available_types():
             timeout=5,
         )
     except (OSError, subprocess.SubprocessError):
-        return list(CONTROLLER_TYPES)
-    raw = ""
+        return {}
+    settings = {}
     for line in result.stdout.splitlines():
         key, sep, value = line.partition("=")
-        if sep and key.strip() == "ARMADA_IP_TARGETS":
+        if sep:
             try:
-                raw = shlex.split(value)[0] if value.strip() else ""
+                settings[key.strip()] = shlex.split(value)[0] if value.strip() else ""
             except ValueError:
-                raw = value.strip()
-            break
+                settings[key.strip()] = value.strip()
+    return settings
+
+
+def available_types():
+    raw = device_settings().get("ARMADA_IP_TARGETS", "")
     types = []
     for item in raw.split(","):
         item = item.strip()
@@ -174,6 +178,9 @@ def main(argv):
         save_type(argv[2])
         return 0
     if command == "apply":
+        if device_settings().get("ARMADA_BUILTIN_GAMEPAD", "1") == "0":
+            print("No built-in gamepad; skipping controller startup configuration")
+            return 0
         return 0 if apply_with_retry(load_type(available_types())) else 1
     print("usage: controller-type get|set|apply", file=sys.stderr)
     return 2
