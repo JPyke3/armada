@@ -482,6 +482,10 @@ export function Content() {
                   onClick={addLocalApk}>+ Add local .apk</ButtonItem>
               </PanelSectionRow> : androidSearch.message && <PanelSectionRow><div>{androidSearch.message}</div></PanelSectionRow>}
               {filtering && !apps.length && <PanelSectionRow><div>No matching apps in this list</div></PanelSectionRow>}
+              {filtering && <PanelSectionRow>
+                <ButtonItem layout="below" disabled={androidSearch.busy}
+                  onClick={() => searchAndroid(false)}>Search all apps</ButtonItem>
+              </PanelSectionRow>}
             </>}
             {apps.map((app) => (
               <AppRow
