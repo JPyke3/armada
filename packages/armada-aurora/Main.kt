@@ -31,7 +31,7 @@ private fun profile() = Properties().apply {
     setProperty("Screen.Density", "320")
     setProperty("Screen.Width", "1080")
     setProperty("Screen.Height", "1920")
-    setProperty("Locales", "en_AU,en_US,en")
+    setProperty("Locales", "en_US,en_AU,en")
     setProperty("GL.Version", "196609")
     setProperty("SharedLibraries", "android.test.base,android.test.mock,android.test.runner,org.apache.http.legacy")
     setProperty(
@@ -125,7 +125,7 @@ private class Backend(private val dispenser: URI) {
                 throw Failure("authentication", "Invalid anonymous session response")
             }
             return AuthHelper.build(
-                email, token, AuthHelper.Token.AUTH, true, properties, Locale.forLanguageTag("en-AU")
+                email, token, AuthHelper.Token.AUTH, true, properties, Locale.forLanguageTag("en-US")
             ).also { session = it }
         } catch (error: Exception) {
             val failure = error as? Failure ?: Failure("authentication", "Anonymous authentication failed")
@@ -146,7 +146,7 @@ private class Backend(private val dispenser: URI) {
     /** Filter public chart entries through the anonymous session's actual availability. */
     private fun browse(category: String) = run {
         val chart = WebTopChartsHelper()
-            .with(Locale.forLanguageTag("en-AU"))
+            .with(Locale.forLanguageTag("en-US"))
             .getCluster(category, "apps_topselling_free")
         val available = AppDetailsHelper(authenticate())
             .getAppByPackageName(chart.clusterAppList.map { it.packageName })
