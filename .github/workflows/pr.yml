@@ -180,7 +180,7 @@ jobs:
           if-no-files-found: error
 
   image:
-    name: Container image
+    name: Container image (${{ matrix.variant }})
     needs: [resolve, cross, boot-tests]
     if: >-
       !cancelled() &&
@@ -188,11 +188,17 @@ jobs:
       needs.boot-tests.result == 'success' &&
       (needs.cross.result == 'success' || needs.cross.result == 'skipped')
     runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [handheld, desktop]
     permissions:
       contents: read
       packages: read
       actions: read
     env:
+      IMAGE_DESC: "Armada: a gaming-focused, SteamOS-like Fedora bootc image for ARM64 ${{ matrix.variant }} systems"
+      IMAGE_NAME: ${{ github.event.repository.name }}${{ matrix.variant == 'desktop' && '-desktop' || '' }}
       DISK_TAG: pr-${{ github.event.pull_request.number }}
     steps:
       - name: Free build space
@@ -312,6 +318,7 @@ jobs:
             org.opencontainers.image.licenses=GPL-2.0-or-later
             org.opencontainers.image.title=${{ env.IMAGE_NAME }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            dev.armada.variant=${{ matrix.variant }}
             containers.bootc=1
           sep-tags: " "
           sep-annotations: " "
@@ -345,6 +352,7 @@ jobs:
           tags: pr-build
           labels: ${{ steps.metadata.outputs.labels }}
           build-args: |
+            ARMADA_VARIANT=${{ matrix.variant }}
             ARMADA_VERSION=${{ steps.version.outputs.version }}
             BASE_IMAGE=${{ steps.chunkah_config.outputs.base_image }}
             CHUNKAH_CONFIG_STR=${{ steps.chunkah_config.outputs.config }}
@@ -409,13 +417,14 @@ jobs:
       - name: Upload container image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: armada-container-pr${{ github.event.pull_request.number }}
+          name: armada-container-${{ matrix.variant }}-pr${{ github.event.pull_request.number }}
           path: ${{ runner.temp }}/armada-${{ env.DISK_TAG }}.tar
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
 
       - name: Load the image for the disk build
+        if: matrix.variant == 'handheld'
         run: |
           set -euxo pipefail
           # bootc-image-builder runs under sudo, so the image has to live in
@@ -424,6 +433,7 @@ jobs:
             "containers-storage:localhost/${IMAGE_NAME}:${DISK_TAG}"
 
       - name: Build disk image
+        if: matrix.variant == 'handheld'
         run: |
           set -euxo pipefail
           JUST_BIN=$(command -v just)
@@ -433,6 +443,7 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" output
 
       - name: Prepare disk image
+        if: matrix.variant == 'handheld'
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -450,6 +461,7 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload disk image
+        if: matrix.variant == 'handheld'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: armada-disk-pr${{ github.event.pull_request.number }}

@@ -2,6 +2,7 @@
 # Shared helpers for the armada update hooks (steamos-update, steamos-select-branch).
 
 ARMADA_CANONICAL_REGISTRY="ghcr.io/armada-os/armada"
+ARMADA_DESKTOP_REGISTRY="ghcr.io/armada-os/armada-desktop"
 ARMADA_LEGACY_REGISTRY="ghcr.io/virtudude/armada"
 ARMADA_CHANNEL_STATE="/var/lib/armada/update-channel"
 ARMADA_CHANNELS="stable beta testing"
@@ -48,7 +49,7 @@ armada_registry_from_ref() {
     r="${r%%@*}"
     [[ "${r##*/}" == *:* ]] && r="${r%:*}"
     case "$r" in
-        "$ARMADA_CANONICAL_REGISTRY"|"$ARMADA_LEGACY_REGISTRY") echo "$r" ;;
+        "$ARMADA_CANONICAL_REGISTRY"|"$ARMADA_LEGACY_REGISTRY"|"$ARMADA_DESKTOP_REGISTRY") echo "$r" ;;
     esac
 }
 
@@ -70,7 +71,7 @@ armada_repository_from_ref() {
 armada_steam_channels_apply() {
     local channel
     case "$1" in
-        "$ARMADA_CANONICAL_REGISTRY"|"$ARMADA_LEGACY_REGISTRY") ;;
+        "$ARMADA_CANONICAL_REGISTRY"|"$ARMADA_LEGACY_REGISTRY"|"$ARMADA_DESKTOP_REGISTRY") ;;
         *) return 1 ;;
     esac
     for channel in ${ARMADA_CHANNELS}; do
@@ -260,7 +261,7 @@ armada_update_target() {
     if repository="$(armada_repository_from_ref "$ref")"; then
         if [[ -z "$booted" ]]; then
             case "$repository" in
-                "$ARMADA_CANONICAL_REGISTRY"|"$ARMADA_LEGACY_REGISTRY") ;;
+                "$ARMADA_CANONICAL_REGISTRY"|"$ARMADA_LEGACY_REGISTRY"|"$ARMADA_DESKTOP_REGISTRY") ;;
                 *) return 1 ;;
             esac
         fi

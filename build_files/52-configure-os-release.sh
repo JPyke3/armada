@@ -15,6 +15,13 @@ if [[ -z ${base_version_id} || ${base_version_id} == *[!a-z0-9._-]* ]]; then
     exit 1
 fi
 
+armada_variant=$(</usr/lib/armada/variant)
+case "$armada_variant" in
+    handheld) variant_name="Armada Handheld" ;;
+    desktop) variant_name="Armada Desktop" ;;
+    *) echo "ERROR: invalid Armada variant: $armada_variant" >&2; exit 1 ;;
+esac
+
 armada_version=$(<"${version_file}")
 if [[ -z ${armada_version} || ${armada_version} == *[!a-z0-9._-]* ]]; then
     echo "ERROR: invalid Armada version for os-release: ${armada_version@Q}" >&2
@@ -26,6 +33,8 @@ cat >"${os_release}" <<EOF
 NAME="Armada"
 VERSION="${armada_version}"
 ID=armada
+VARIANT="${variant_name}"
+VARIANT_ID="${armada_variant}"
 ID_LIKE="fedora"
 VERSION_ID="${base_version_id}"
 BUILD_ID="${armada_version}"

@@ -125,7 +125,7 @@ packages-status:
         fi
     done
 
-build $target_image=image_name $tag=default_tag:
+build $target_image=image_name $tag=default_tag $variant="handheld":
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -158,6 +158,7 @@ build $target_image=image_name $tag=default_tag:
 
     podman build \
         --build-arg "ARMADA_VERSION=${ARMADA_VERSION}" \
+        --build-arg "ARMADA_VARIANT=${variant}" \
         --build-arg-file "${REFS}" \
         "${SECRET_ARGS[@]}" \
         --platform linux/arm64 \

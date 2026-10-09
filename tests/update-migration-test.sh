@@ -15,6 +15,9 @@ assert_registry() {
     fi
 }
 
+assert_registry "$ARMADA_DESKTOP_REGISTRY" \
+    "ostree-image-signed:docker://${ARMADA_DESKTOP_REGISTRY}:testing"
+assert_registry "" "docker://${ARMADA_DESKTOP_REGISTRY}-other:testing"
 assert_registry "$ARMADA_LEGACY_REGISTRY" \
     "ostree-image-signed:docker://${ARMADA_LEGACY_REGISTRY}:stable"
 assert_registry "$ARMADA_CANONICAL_REGISTRY" \
@@ -45,6 +48,7 @@ assert_repository "example.invalid/${ARMADA_LEGACY_REGISTRY}" \
 assert_repository "" "containers-storage:localhost/armada:latest"
 assert_repository "" "ostree-unverified-registry:docker://invalid"
 
+armada_steam_channels_apply "$ARMADA_DESKTOP_REGISTRY" stable
 armada_steam_channels_apply "$ARMADA_CANONICAL_REGISTRY" stable
 armada_steam_channels_apply "$ARMADA_LEGACY_REGISTRY" beta
 if armada_steam_channels_apply "$ARMADA_CANONICAL_REGISTRY" feature-a; then
@@ -75,6 +79,14 @@ assert_target() {
     fi
 }
 
+assert_target "$ARMADA_DESKTOP_REGISTRY" beta beta \
+    "ostree-image-signed:docker://${ARMADA_DESKTOP_REGISTRY}:testing"
+assert_target "$ARMADA_DESKTOP_REGISTRY" testing - \
+    "ostree-image-signed:docker://${ARMADA_DESKTOP_REGISTRY}:testing"
+assert_target "$ARMADA_DESKTOP_REGISTRY" staging beta \
+    "ostree-image-signed:docker://${ARMADA_DESKTOP_REGISTRY}:staging"
+assert_target "$ARMADA_DESKTOP_REGISTRY" beta beta \
+    "ostree-image-signed:docker://${ARMADA_DESKTOP_REGISTRY}@sha256:deadbeef"
 assert_target "$ARMADA_CANONICAL_REGISTRY" beta beta \
     "ostree-image-signed:docker://${ARMADA_CANONICAL_REGISTRY}:stable"
 assert_target "$ARMADA_LEGACY_REGISTRY" stable stable \
@@ -157,7 +169,9 @@ assert registry["mirror"] == [{"location": canonical}]
 sigstore = (
     root / "system_files/etc/containers/registries.d/ghcr-armada.yaml"
 ).read_text()
-for repository in (legacy, canonical):
+desktop = canonical + "-desktop"
+assert docker[desktop] == docker[canonical]
+for repository in (legacy, canonical, desktop):
     assert f"  {repository}:\n    use-sigstore-attachments: true" in sigstore
 PY
 

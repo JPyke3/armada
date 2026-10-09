@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           for suite in boot-backend boot-sync bootimg-regen efi-assets efi-image efi-update x1e-adsp x1e-runtime \
-              installer abl-update esp-rename armada-control-settings build-channel \
+              installer abl-update esp-rename armada-control-settings build-channel update-migration \
               disk-branch-tag disk-image-digest channel-image-publication channel-image-retention; do
             echo "Running ${suite}"
             bash "tests/${suite}-test.sh"

@@ -101,6 +101,8 @@ COPY system_files /system_files/
 
 FROM ${BASE_IMAGE} AS armada-rootfs
 ARG ARMADA_VERSION=unknown
+ARG ARMADA_VARIANT=handheld
+LABEL dev.armada.variant="${ARMADA_VARIANT}"
 LABEL org.opencontainers.image.version="${ARMADA_VERSION}"
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
@@ -134,7 +136,9 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
+    case "${ARMADA_VARIANT}" in handheld|desktop) ;; *) exit 1 ;; esac && \
     mkdir -p /usr/lib/armada && \
+    printf '%s\n' "${ARMADA_VARIANT}" >/usr/lib/armada/variant && \
     printf '%s\n' "${ARMADA_VERSION}" >/usr/lib/armada/version && \
     /ctx/build_files/build.sh
 

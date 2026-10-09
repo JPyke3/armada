@@ -10,7 +10,7 @@ import sys
 import tempfile
 import textwrap
 
-workflow = (Path(sys.argv[1]) / '.github/workflows/build.yml').read_text()
+workflow = (Path(sys.argv[1]) / '.github/workflows/build-container.yml').read_text()
 
 def script(name):
     step = workflow.split(f'      - name: {name}\n', 1)[1]

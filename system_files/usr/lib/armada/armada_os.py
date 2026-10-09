@@ -4,7 +4,7 @@ import subprocess
 UPDATE = "/usr/libexec/armada/armada-update"
 SELECT = "/usr/libexec/armada/armada-select-branch"
 CHANNELS = ("stable", "beta", "preview")
-REPOSITORIES = ("ghcr.io/armada-os/armada", "ghcr.io/virtudude/armada")
+REPOSITORIES = ("ghcr.io/armada-os/armada-desktop", "ghcr.io/armada-os/armada", "ghcr.io/virtudude/armada")
 
 
 def command(arguments, timeout=15):

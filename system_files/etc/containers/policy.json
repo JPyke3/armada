@@ -16,6 +16,18 @@
                     }
                 }
             ],
+            "ghcr.io/armada-os/armada-desktop": [
+                {
+                    "type": "sigstoreSigned",
+                    "keyPaths": [
+                        "/etc/pki/containers/armada.pub",
+                        "/etc/pki/containers/armada-backup.pub"
+                    ],
+                    "signedIdentity": {
+                        "type": "matchRepository"
+                    }
+                }
+            ],
             "ghcr.io/armada-os/armada": [
                 {
                     "type": "sigstoreSigned",
