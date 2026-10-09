@@ -1,5 +1,5 @@
 [Unit]
-Description=Boot-time hotkeys (hold Select for Desktop Mode)
+Description=Boot-time hotkeys (hold Select or Escape for Desktop Mode)
 DefaultDependencies=no
 After=local-fs.target
 Before=display-manager.service

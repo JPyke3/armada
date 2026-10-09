@@ -1,0 +1,21 @@
+From: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Subject: [PATCH] drm/msm: mark the fbdev framebuffer as system memory
+
+Backport the upstream framebuffer flag fix for Armada's 7.2.6 kernel.
+The Yoga Slim 7x boot captures report sys_imageblit and sys_fillrect
+rejecting the framebuffer after the MSM console handoff. The MSM fbdev
+buffer uses a kernel virtual mapping and needs FBINFO_VIRTFB.
+
+Link: https://lkml.iu.edu/hypermail/linux/kernel/2607.3/13309.html
+Signed-off-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+---
+--- a/drivers/gpu/drm/msm/msm_fbdev.c
++++ b/drivers/gpu/drm/msm/msm_fbdev.c
+@@ -132,6 +132,7 @@
+ 	helper->fb = fb;
+ 
+ 	fbi->fbops = &msm_fb_ops;
++	fbi->flags |= FBINFO_VIRTFB; /* system memory */
+ 
+ 	drm_fb_helper_fill_info(fbi, helper, sizes);
+ 

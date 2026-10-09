@@ -437,35 +437,25 @@ jobs:
           set -euo pipefail
           shopt -s nullglob
           images=(output/armada-*.img.gz)
-          if [ "${#images[@]}" -ne 2 ]; then
-            echo "::error::Expected ABL and EFI disk images in output/."
+          if [ "${#images[@]}" -ne 1 ] || [ ! -s "${images[0]}" ]; then
+            echo "::error::Expected exactly one nonempty disk image in output/."
             exit 1
           fi
-          for image in "${images[@]}"; do
-            [ -s "${image}" ] || exit 1
-            filename="${image##*/}"
-            (cd output && sha256sum "${filename}" > "${filename}.sha256")
-            echo "\`${filename}\` ($(du -h "${image}" | cut -f1))" >> "${GITHUB_STEP_SUMMARY}"
-          done
+          filename="${images[0]##*/}"
+          # Basename so sha256sum -c works beside the downloaded image.
+          (cd output && sha256sum "${filename}" > "${filename}.sha256")
+          {
+            echo "### Disk image"
+            echo "\`${filename}\` ($(du -h "output/${filename}" | cut -f1))"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Upload ABL disk image
+      - name: Upload disk image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: armada-disk-pr${{ github.event.pull_request.number }}-abl
+          name: armada-disk-pr${{ github.event.pull_request.number }}
           path: |
-            output/armada-*-abl.img.gz
-            output/armada-*-abl.img.gz.sha256
-          if-no-files-found: error
-          retention-days: 7
-          compression-level: 0
-
-      - name: Upload EFI disk image
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: armada-disk-pr${{ github.event.pull_request.number }}-efi
-          path: |
-            output/armada-*-efi.img.gz
-            output/armada-*-efi.img.gz.sha256
+            output/armada-*.img.gz
+            output/armada-*.img.gz.sha256
           if-no-files-found: error
           retention-days: 7
           compression-level: 0

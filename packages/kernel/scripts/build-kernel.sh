@@ -258,7 +258,8 @@ for base in "${IN_TREE_DTBS[@]}"; do
     if [ -f "${dtb_src}" ]; then
         cp "${dtb_src}" "${STAGE}/lib/modules/${KVER}/dtb/qcom/"
     else
-        echo "  WARN: built in-tree DTB missing: ${dtb_src}"
+        echo "ERROR: required in-tree DTB missing: ${dtb_src}" >&2
+        exit 1
     fi
 done
 

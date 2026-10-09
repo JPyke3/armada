@@ -40,9 +40,11 @@ action_desktop() {
 }
 
 # code:evdev name:label:action. Select because no capability map translates it,
-# so it reaches the raw node unchanged.
+# so it reaches the raw node unchanged. Escape provides the same recovery path
+# on devices with a keyboard but no usable gamepad Select button.
 hotkeys=(
     "314:BTN_SELECT:Desktop Mode:action_desktop"
+    "1:KEY_ESC:Desktop Mode:action_desktop"
 )
 
 (( POLL_MS > 0 )) || POLL_MS=500

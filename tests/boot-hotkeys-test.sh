@@ -17,12 +17,13 @@ BIN="$WORK/bin"; DEV="$WORK/dev"; SYS="$WORK/sys"
 mkdir -p "$BIN" "$DEV" "$SYS"
 export WORK
 
-# event0 has no EV_KEY bitmap at all, event1 carries BTN_SELECT (314), and
-# event2 carries the neighbouring BTN_START (315): only event1 may be polled.
-for n in 0 1 2; do : > "$DEV/event$n"; mkdir -p "$SYS/event$n/device/capabilities"; done
+# event0 has no EV_KEY bitmap at all, event1 carries BTN_SELECT (314), event2
+# carries the neighbouring BTN_START (315), and event3 carries KEY_ESC (1).
+for n in 0 1 2 3; do : > "$DEV/event$n"; mkdir -p "$SYS/event$n/device/capabilities"; done
 printf '0\n' > "$SYS/event0/device/capabilities/key"
 printf '400000000000000 0 0 0 0\n' > "$SYS/event1/device/capabilities/key"
 printf '800000000000000 0 0 0 0\n' > "$SYS/event2/device/capabilities/key"
+printf '2\n' > "$SYS/event3/device/capabilities/key"
 
 cat > "$BIN/evtest" <<'STUB'
 #!/usr/bin/env bash
@@ -77,7 +78,7 @@ run_hotkeys
 [[ -e "$WORK/session.log" ]] && fail "no hold: switched sessions anyway"
 [[ -e "$WORK/recovery-mode" ]] && fail "no hold: marked recovery mode anyway"
 sort -u "$WORK/queried" > "$WORK/queried.uniq"
-[[ "$(cat "$WORK/queried.uniq")" == "$DEV/event1" ]] \
+[[ "$(cat "$WORK/queried.uniq")" == "$DEV/event1"$'\n'"$DEV/event3" ]] \
     || fail "device selection: polled $(tr '\n' ' ' < "$WORK/queried.uniq")"
 
 # Held before the display manager is up: write the autologin drop-in only.
@@ -90,6 +91,13 @@ assert_file "$WORK/recovery-mode" "recovery marker written"
 assert_grep "$WORK/status.log" "Starting Desktop" "splash announce"
 assert_grep "$WORK/log" "holding Desktop Mode" "journal notes the hold"
 assert_grep "$WORK/log" "triggering Desktop Mode" "journal notes the trigger"
+
+# A keyboard Escape hold provides the same recovery path when Select is absent.
+printf '%s\n' "$DEV/event3" > "$WORK/pressed-dev"
+run_hotkeys
+assert_grep "$WORK/session.log" "default-desktop" "Escape hold"
+assert_file "$WORK/recovery-mode" "Escape recovery marker written"
+rm -f "$WORK/pressed-dev"
 
 # Held once the session is running: restart it the way Steam's own switch does.
 : > "$WORK/dm-active"
@@ -148,6 +156,8 @@ assert_no_grep "$WORK/systemctl.log" "start display-manager.service" "pre-sddm m
 
 grep -qE '^ *"314:BTN_SELECT:Desktop Mode:action_desktop"' "$HOTKEYS" \
     || fail "the hotkey table entry changed shape"
+grep -qE '^ *"1:KEY_ESC:Desktop Mode:action_desktop"' "$HOTKEYS" \
+    || fail "the Escape hotkey table entry changed shape"
 grep -q 'Before=display-manager.service' "$UNIT" || fail "unit must start before sddm"
 grep -q 'ConditionPathExists=!/etc/armada/boot-hotkeys-disabled' "$UNIT" \
     || fail "unit needs an escape hatch"

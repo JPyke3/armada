@@ -18,6 +18,7 @@ dracut \
     --add ostree \
     --add armada-splash \
     --add armada-ostree-fallback \
+    --add armada-x1e-adsp \
     "${IMG}" "${KVER}"
 
 # dracut drops modules silently: fail the build rather than ship without.
@@ -32,6 +33,10 @@ required=(
     usr/libexec/armada/armada-ostree-fallback \
     usr/lib/systemd/system/ostree-prepare-root.service.d/armada-fallback.conf \
     usr/lib/ostree/ostree-prepare-root
+    var/lib/dracut/hooks/pre-udev/30-armada-x1e-adsp.sh
+    "usr/lib/modules/${KVER}/kernel/drivers/remoteproc/qcom_q6v5_pas.ko"
+    usr/lib/firmware/qcom/x1e80100/LENOVO/83ED/qcadsp8380.mbn
+    usr/lib/firmware/qcom/x1e80100/LENOVO/83ED/adsp_dtbs.elf
 )
 
 if ! lsinitrd "${IMG}" | awk '
@@ -44,6 +49,13 @@ if ! lsinitrd "${IMG}" | awk '
         ARGC = 1
     }
     $NF in required { found[$NF] = 1 }
+    # Fedora compresses firmware and kernel modules. Accept either encoding,
+    # while still requiring the complete filename (not a substring match).
+    $NF ~ /^usr\/lib\/(firmware|modules)\// {
+        path = $NF
+        sub(/\.(xz|zst)$/, "", path)
+        if (path in required) found[path] = 1
+    }
     END {
         for (i = 1; i <= count; i++) {
             if (!(paths[i] in found)) {
