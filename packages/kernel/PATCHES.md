@@ -336,6 +336,9 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/0536-scsi-ufs-core-dynamically-disable-timestamp-on-unsupported-devices.patch`
   source: https://git.kernel.org/pub/scm/linux/kernel/git/mkp/scsi.git/commit/?id=00eec343c7306be7f1103f5002abd77496937ff9
   upstream: https://git.kernel.org/pub/scm/linux/kernel/git/mkp/scsi.git/commit/?id=00eec343c7306be7f1103f5002abd77496937ff9
+- `patches/0537-usb-xhci-pci-renesas-let-the-controller-power-off-in-suspend.patch`
+  source: armada
+  upstream: local
 - `patches/0512-PCI-qcom-skip-L23-ready-poll-on-SM8550.patch`
   source: armada
   upstream: local
@@ -790,7 +793,7 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   notes: Armada fixes the hall-sensor pinctrl, makes only the lid-open edge wake, corrects touch orientation, and enables DPU dithering on the top panel after copying `dts/qcs8550-ayn-thor.dts`.
 - `dts/sm8650-ayaneo-common.dtsi.patch`
   source: armada
-  notes: Armada keeps volume-up from waking the system, wires the upstream SY7758 driver, marks PCIe WAKE# active-low, and idles the codec rails in LPM during s2idle after copying `dts/sm8650-ayaneo-common.dtsi`.
+  notes: Armada keeps volume-up from waking the system, wires the upstream SY7758 driver, marks PCIe WAKE# active-low, idles the codec rails in LPM during s2idle, and keeps the RTC offset in an SDAM cell with the alarm enabled after copying `dts/sm8650-ayaneo-common.dtsi`.
 - `dts/sm8650-ayaneo-ps2.dts.patch`
   source: armada
   notes: Armada selects the accepted Pocket S2 WSA2 sound-card mapping after copying the ROCKNIX DTS.
