@@ -12,16 +12,12 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import textwrap
 
 channel = os.environ["ARMADA_TEST_CHANNEL"]
 image_name = 'armada-desktop' if channel.startswith('desktop-') else 'armada'
 tag = "testing" if channel.endswith("preview") else "staging"
 
-workflow = (Path(sys.argv[1]) / '.github/workflows/build-disk.yml').read_text()
-# Extraction depends on the step name and the following step boundary.
-step = workflow.split('      - name: Publish disk image to R2\n', 1)[1]
-script = textwrap.dedent(step.split('        run: |\n', 1)[1].split('\n      - name:', 1)[0])
+script = (Path(sys.argv[1]) / '.github/scripts/publish-disk.sh').read_text()
 mock = '''#!/usr/bin/env python3
 import json, os, shutil, sys
 from pathlib import Path

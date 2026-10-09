@@ -69,39 +69,84 @@ channel_workflow = (Path(sys.argv[1]) / '.github/workflows/publish-channel-disk.
 step = workflow.split('      - name: Resolve container source\n', 1)[1]
 script = textwrap.dedent(step.split('        run: |\n', 1)[1].split('\n\n  build:', 1)[0])
 root = Path(sys.argv[2])
-(root/'bin/skopeo').write_text('#!/usr/bin/env bash\n[[ "${@: -1}" == "docker://${IMAGE_REGISTRY}/${IMAGE_NAME}:${CONTAINER_TAG}" ]] || exit 1\nprintf "%s\\n" "$INSPECTION"\n')
+(root/'bin/skopeo').write_text('''#!/usr/bin/env python3
+import json, os, sys
+ref = sys.argv[-1]
+base = 'docker://ghcr.io/armada-os/armada'
+assert ref in (base + ':testing', base + '-desktop:testing'), ref
+variant = 'desktop' if ref == base + '-desktop:testing' else 'handheld'
+labels = {'org.opencontainers.image.revision': 'b'*40}
+digest = 'sha256:' + ('d' if variant == 'desktop' else 'a')*64
+if variant == os.environ['FAIL_VARIANT']:
+    case = os.environ['TEST_CASE']
+    if case == 'missing-revision': labels = {}
+    if case == 'revision-mismatch': labels['org.opencontainers.image.revision'] = 'c'*40
+    if case == 'digest-mismatch': digest = 'sha256:' + 'c'*64
+print(json.dumps({'Digest': digest, 'Labels': labels}))
+''')
 (root/'bin/skopeo').chmod(0o755)
 digest = 'sha256:' + 'a'*64
+desktop_digest = 'sha256:' + 'd'*64
 revision = 'b'*40
 for variant in ['handheld', 'desktop']:
     for case in ['pinned', 'digest-mismatch', 'revision-mismatch', 'manual', 'missing-revision']:
-        labels = {} if case == 'missing-revision' else {'org.opencontainers.image.revision': revision}
         output = root / ('inspect-' + variant + '-' + case)
-        env = dict(os.environ, IMAGE_VARIANT=variant, IMAGE_REGISTRY='ghcr.io/armada-os',
-                   IMAGE_NAME='armada-desktop' if variant == 'desktop' else 'armada', CONTAINER_TAG='testing',
-                   EXPECTED_DIGEST='sha256:'+'c'*64 if case == 'digest-mismatch' else digest,
-                   EXPECTED_REVISION='c'*40 if case == 'revision-mismatch' else revision,
-                   GITHUB_OUTPUT=str(output),
-                   INSPECTION=json.dumps({'Digest': digest, 'Labels': labels}))
+        env = dict(os.environ, IMAGE_REGISTRY='ghcr.io/armada-os', IMAGE_NAME='armada',
+                   CONTAINER_TAG='testing', EXPECTED_DIGEST=digest,
+                   EXPECTED_DESKTOP_DIGEST=desktop_digest, EXPECTED_REVISION=revision,
+                   GITHUB_OUTPUT=str(output), FAIL_VARIANT=variant, TEST_CASE=case)
         if case == 'manual':
-            env['EXPECTED_DIGEST'] = ''
+            env['EXPECTED_DIGEST'] = env['EXPECTED_DESKTOP_DIGEST'] = ''
         result = subprocess.run(['bash', '-c', script], env=env, capture_output=True, text=True)
         if case in ('digest-mismatch', 'revision-mismatch', 'missing-revision'):
             assert result.returncode != 0 and not output.exists(), case
         else:
             assert result.returncode == 0, result.stderr
-            assert f'digest={digest}\n' in output.read_text()
-            assert f'revision={revision}\n' in output.read_text()
+            outputs = dict(line.split('=', 1) for line in output.read_text().splitlines())
+            assert json.loads(outputs['digests']) == {'handheld': digest, 'desktop': desktop_digest}
+            assert outputs['revision'] == revision
         print(f'PASS: Disk source resolution {variant} {case}')
 
-desktop_job = build_workflow.split('  publish_desktop_disk:', 1)[1]
-assert 'needs: build_desktop' in desktop_job
-assert 'variant: desktop' in desktop_job
-assert 'image_digest: ${{ needs.build_desktop.outputs.digest }}' in desktop_job
-assert 'source_ref: ${{ needs.build_desktop.outputs.revision }}' in desktop_job
+assert build_workflow.count('uses: ./.github/workflows/build-disk.yml') == 1
+assert 'needs: [build_push, build_desktop]' in build_workflow
+assert 'tests_passed: true' in build_workflow
+assert 'desktop_image_digest: ${{ needs.build_desktop.outputs.digest }}' in build_workflow
+assert 'image_digest: ${{ needs.build_push.outputs.digest }}' in build_workflow
+assert 'if: ${{ !inputs.tests_passed }}' in workflow
+assert 'variant: [handheld, desktop]' in workflow
+publish_job = workflow.split('\n  publish:', 1)[1]
+assert 'needs: [prepare, build]' in publish_job
+assert 'if: inputs.publish_r2' in publish_job
+assert 'matrix:' not in publish_job
+# Execute the fan-in loop with a recording publisher, without contacting R2.
+step = publish_job.split('      - name: Publish disk images to R2\n', 1)[1]
+fan_in = textwrap.dedent(step.split('        run: |\n', 1)[1])
+(root / '.github/scripts').mkdir(parents=True)
+(root / '.github/scripts/publish-disk.sh').write_text('''#!/bin/bash
+set -euo pipefail
+printf '%s %s %s %s\\n' "$PWD" "$IMAGE_NAME" "$R2_PREFIX" "$CONTAINER_DIGEST" >> "$PUBLICATION_LOG"
+[[ "${FAIL_PUBLISH:-}" != "$IMAGE_NAME" ]]
+''')
+for variant in ('handheld', 'desktop'):
+    (root / 'disks' / variant).mkdir(parents=True)
+for fail in ('', 'armada'):
+    log = root / ('publish-' + (fail or 'success'))
+    env = dict(os.environ, GITHUB_WORKSPACE=str(root), PUBLICATION_LOG=str(log),
+               CONTAINER_DIGESTS=json.dumps({'handheld': digest, 'desktop': desktop_digest}),
+               IMAGE_NAME='armada', R2_PREFIX='preview', FAIL_PUBLISH=fail)
+    result = subprocess.run(['bash', '-c', fan_in], cwd=root, env=env, capture_output=True, text=True)
+    calls = log.read_text().splitlines()
+    assert calls[0] == f'{root}/disks/handheld armada preview {digest}'
+    if fail:
+        assert result.returncode != 0 and len(calls) == 1
+    else:
+        assert result.returncode == 0, result.stderr
+        assert calls[1:] == [f'{root}/disks/desktop armada-desktop desktop-preview {desktop_digest}']
+print('PASS: Shared publication preserves variant digests and stops on failure')
+
 assert 'ref: ${{ needs.prepare.outputs.revision }}' in workflow
-assert 'ARMADA_IMAGE_DIGEST: ${{ needs.prepare.outputs.digest }}' in workflow
-assert 'CONTAINER_DIGEST: ${{ needs.prepare.outputs.digest }}' in workflow
+assert 'ARMADA_IMAGE_DIGEST: ${{ fromJSON(needs.prepare.outputs.digests)[matrix.variant] }}' in workflow
+assert 'CONTAINER_DIGESTS: ${{ needs.prepare.outputs.digests }}' in workflow
 assert 'BUILD_COMMIT: ${{ needs.prepare.outputs.revision }}' in workflow
 assert 'EXPECTED_REVISION: ${{ inputs.source_ref || github.sha }}' in workflow
 assert workflow.count('persist-credentials: false') == 2

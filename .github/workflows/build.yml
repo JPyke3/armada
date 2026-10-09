@@ -53,8 +53,8 @@ jobs:
     secrets: inherit
 
   publish_disk:
-    name: Handheld disk image
-    needs: build_push
+    name: Disk images
+    needs: [build_push, build_desktop]
     if: >-
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') &&
       needs.build_push.outputs.channel != '' &&
@@ -68,31 +68,10 @@ jobs:
       tag: ${{ needs.build_push.outputs.tag }}
       channel: ${{ needs.build_push.outputs.channel }}
       publish_r2: true
+      tests_passed: true
+      desktop_image_digest: ${{ needs.build_desktop.outputs.digest }}
       image_digest: ${{ needs.build_push.outputs.digest }}
       source_ref: ${{ needs.build_push.outputs.revision }}
-    secrets:
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-
-  publish_desktop_disk:
-    name: Desktop disk image
-    needs: build_desktop
-    if: >-
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') &&
-      needs.build_desktop.outputs.channel != '' &&
-      github.event.repository.fork == false
-    permissions:
-      actions: read
-      contents: read
-      packages: read
-    uses: ./.github/workflows/build-disk.yml
-    with:
-      variant: desktop
-      tag: ${{ needs.build_desktop.outputs.tag }}
-      channel: ${{ needs.build_desktop.outputs.channel }}
-      publish_r2: true
-      image_digest: ${{ needs.build_desktop.outputs.digest }}
-      source_ref: ${{ needs.build_desktop.outputs.revision }}
     secrets:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}

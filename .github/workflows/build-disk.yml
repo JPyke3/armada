@@ -1,19 +1,16 @@
 ---
-name: Build disk image
+name: Build disk images
 
 on:
   workflow_dispatch:
-    inputs:
-      variant:
-        description: "Image variant to build"
-        type: choice
-        options: [handheld, desktop]
-        default: handheld
   workflow_call:
     inputs:
-      variant:
+      tests_passed:
+        type: boolean
+        default: false
+      desktop_image_digest:
         type: string
-        default: handheld
+        default: ""
       tag:
         type: string
         default: ""
@@ -36,23 +33,22 @@ on:
         required: false
 
 env:
-  IMAGE_VARIANT: ${{ inputs.variant || 'handheld' }}
-  IMAGE_NAME: ${{ github.event.repository.name }}${{ inputs.variant == 'desktop' && '-desktop' || '' }}
-  DISK_ARTIFACT: armada-disk-image-${{ inputs.variant || 'handheld' }}
+  IMAGE_NAME: ${{ github.event.repository.name }}
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"
   BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest"
   R2_ENDPOINT_URL: ${{ vars.R2_ENDPOINT_URL }}
   R2_BUCKET: ${{ vars.R2_BUCKET }}
-  R2_PREFIX: ${{ inputs.variant == 'desktop' && 'desktop-' || '' }}${{ inputs.channel || 'preview' }}
+  R2_PREFIX: ${{ inputs.channel || 'preview' }}
   R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
 
 concurrency:
-  group: ${{ inputs.variant || 'handheld' }}-${{ inputs.publish_r2 && format('{0}-disk', inputs.channel) || format('build-disk-{0}', github.ref || github.run_id) }}
+  group: ${{ inputs.publish_r2 && format('{0}-disk', inputs.channel) || format('build-disk-{0}', github.ref || github.run_id) }}
   cancel-in-progress: false
   queue: max
 
 jobs:
   boot-tests:
+    if: ${{ !inputs.tests_passed }}
     permissions:
       contents: read
     uses: ./.github/workflows/boot-tests.yml
@@ -65,7 +61,7 @@ jobs:
     permissions: {}
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-      digest: ${{ steps.source.outputs.digest }}
+      digests: ${{ steps.source.outputs.digests }}
       revision: ${{ steps.source.outputs.revision }}
     steps:
       - name: Check R2 configuration
@@ -121,35 +117,51 @@ jobs:
         env:
           CONTAINER_TAG: ${{ steps.tag.outputs.tag }}
           EXPECTED_DIGEST: ${{ inputs.image_digest }}
+          EXPECTED_DESKTOP_DIGEST: ${{ inputs.desktop_image_digest }}
           EXPECTED_REVISION: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
-          case "${IMAGE_VARIANT}" in
-            handheld|desktop) ;;
-            *) echo "::error::Unknown image variant"; exit 1 ;;
-          esac
-          image="${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}:${CONTAINER_TAG}"
-          inspection=$(skopeo inspect --no-creds --override-arch arm64 "docker://${image}")
-          digest=$(jq -er '.Digest' <<< "${inspection}")
-          revision=$(jq -er '.Labels["org.opencontainers.image.revision"]' <<< "${inspection}")
-          if ! [[ "${digest}" =~ ^sha256:[a-f0-9]{64}$ && "${revision}" =~ ^[a-f0-9]{40}$ ]]; then
-            echo "::error::Container has an invalid digest or source revision."
-            exit 1
-          fi
-          if [ -n "${EXPECTED_DIGEST}" ] && [ "${digest}" != "${EXPECTED_DIGEST}" ]; then
-            echo "::error::Container digest ${digest} does not match requested digest ${EXPECTED_DIGEST}."
-            exit 1
-          fi
-          if [ "${revision}" != "${EXPECTED_REVISION}" ]; then
-            echo "::error::Container revision ${revision} does not match source revision ${EXPECTED_REVISION}. Rebuild the container after rebasing."
-            exit 1
-          fi
-          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          digests='{}'
+          for variant in handheld desktop; do
+            suffix=""; expected="${EXPECTED_DIGEST}"
+            if [ "${variant}" = desktop ]; then
+              suffix=-desktop; expected="${EXPECTED_DESKTOP_DIGEST}"
+            fi
+            image="${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}${suffix}:${CONTAINER_TAG}"
+            inspection=$(skopeo inspect --no-creds --override-arch arm64 "docker://${image}")
+            digest=$(jq -er '.Digest' <<< "${inspection}")
+            revision=$(jq -er '.Labels["org.opencontainers.image.revision"]' <<< "${inspection}")
+            if ! [[ "${digest}" =~ ^sha256:[a-f0-9]{64}$ && "${revision}" =~ ^[a-f0-9]{40}$ ]]; then
+              echo "::error::${variant} container has an invalid digest or source revision."
+              exit 1
+            fi
+            if [ -n "${expected}" ] && [ "${digest}" != "${expected}" ]; then
+              echo "::error::${variant} container digest does not match requested digest ${expected}."
+              exit 1
+            fi
+            if [ "${revision}" != "${EXPECTED_REVISION}" ]; then
+              echo "::error::${variant} container revision ${revision} does not match source revision ${EXPECTED_REVISION}."
+              exit 1
+            fi
+            digests=$(jq -c --arg variant "${variant}" --arg digest "${digest}" \
+              '. + {($variant): $digest}' <<< "${digests}")
+          done
+          echo "digests=${digests}" >> "${GITHUB_OUTPUT}"
           echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
 
   build:
-    name: Build disk image
+    name: Build ${{ matrix.variant }} disk image
     needs: [prepare, boot-tests]
+    if: >-
+      !cancelled() && needs.prepare.result == 'success' &&
+      (needs.boot-tests.result == 'success' || needs.boot-tests.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [handheld, desktop]
+    env:
+      IMAGE_NAME: ${{ github.event.repository.name }}${{ matrix.variant == 'desktop' && '-desktop' || '' }}
+      DISK_ARTIFACT: armada-disk-image-${{ matrix.variant }}
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -179,7 +191,7 @@ jobs:
 
       - name: Build disk image
         env:
-          ARMADA_IMAGE_DIGEST: ${{ needs.prepare.outputs.digest }}
+          ARMADA_IMAGE_DIGEST: ${{ fromJSON(needs.prepare.outputs.digests)[matrix.variant] }}
         run: |
           set -euxo pipefail
           JUST_BIN=$(command -v just)
@@ -218,7 +230,7 @@ jobs:
           overwrite: true
 
   publish:
-    name: Publish disk image
+    name: Publish disk images
     needs: [prepare, build]
     if: inputs.publish_r2
     runs-on: ubuntu-24.04-arm
@@ -232,17 +244,19 @@ jobs:
           ref: ${{ needs.prepare.outputs.revision }}
           persist-credentials: false
 
-      - name: Download disk image
+      - name: Download disk images
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euxo pipefail
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "${GITHUB_ENV}"
           echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> "${GITHUB_ENV}"
-          mkdir -p output
-          gh run download "${GITHUB_RUN_ID}" --name "${DISK_ARTIFACT}" --dir output
+          for variant in handheld desktop; do
+            gh run download "${GITHUB_RUN_ID}" --name "armada-disk-image-${variant}" \
+              --dir "disks/${variant}/output"
+          done
 
-      - name: Publish disk image to R2
+      - name: Publish disk images to R2
         id: publish
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -252,98 +266,19 @@ jobs:
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           CONTAINER_TAG: ${{ needs.prepare.outputs.tag }}
-          CONTAINER_DIGEST: ${{ needs.prepare.outputs.digest }}
+          CONTAINER_DIGESTS: ${{ needs.prepare.outputs.digests }}
           BUILD_COMMIT: ${{ needs.prepare.outputs.revision }}
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          images=(output/armada-*.img.gz)
-          if [ "${#images[@]}" -ne 1 ] || [ ! -s "${images[0]}" ]; then
-            echo "::error::Expected exactly one nonempty disk image."
-            exit 1
-          fi
-          image="${images[0]}"
-          (cd output && sha256sum -c "${image##*/}.sha256")
-          filename="${image##*/}"
-          prefix="${R2_PREFIX#/}"
-          prefix="${prefix%/}"
-
-          case "${prefix}:${CONTAINER_TAG}" in
-            preview:testing|staging:staging|desktop-preview:testing|desktop-staging:staging) ;;
-            *) echo "::error::Invalid disk publication channel/tag."; exit 1 ;;
-          esac
-
-          require_current_channel() {
-            current=$(skopeo inspect --no-creds --override-arch arm64 --format '{{.Digest}}' \
-              "docker://${IMAGE_REGISTRY}/${IMAGE_NAME}:${CONTAINER_TAG}")
-            if [ "${current}" != "${CONTAINER_DIGEST}" ]; then
-              echo "::error::${R2_PREFIX} has advanced to ${current}; refusing to publish stale disk ${CONTAINER_DIGEST}."
-              exit 1
-            fi
-          }
-          require_current_channel
-
-          commit_title=$(git show -s --format=%s "${BUILD_COMMIT}")
-          # The high-level S3 command handles multipart uploads for large images.
-          aws configure set default.s3.multipart_chunksize 64MB
-          for file in "${image}" "${image}.sha256"; do
-            key="${prefix}/${file##*/}"
-            aws s3 cp "${file}" "s3://${R2_BUCKET}/${key}" \
-              --endpoint-url "${R2_ENDPOINT_URL}" \
-              --metadata "armada-${prefix}=true" --cache-control no-store --only-show-errors
-            uploaded_size=$(aws s3api head-object \
-              --endpoint-url "${R2_ENDPOINT_URL}" \
-              --bucket "${R2_BUCKET}" --key "${key}" \
-              --query ContentLength --output text)
-            if [ "${uploaded_size}" != "$(stat -c %s "${file}")" ]; then
-              echo "::error::Uploaded size does not match ${file##*/}."
-              exit 1
-            fi
+          for variant in handheld desktop; do
+            (
+              cd "disks/${variant}"
+              export CONTAINER_DIGEST
+              CONTAINER_DIGEST=$(jq -er --arg variant "${variant}" '.[$variant]' <<< "${CONTAINER_DIGESTS}")
+              if [ "${variant}" = desktop ]; then
+                export IMAGE_NAME="${IMAGE_NAME}-desktop" R2_PREFIX="desktop-${R2_PREFIX}"
+              fi
+              export ARMADA_SOURCE_ROOT="${GITHUB_WORKSPACE}"
+              bash "${GITHUB_WORKSPACE}/.github/scripts/publish-disk.sh"
+            )
           done
-
-          require_current_channel
-          version="${filename#armada-}"
-          version="${version#desktop-}"
-          version="${version%.img.gz}"
-          read -r image_sha256 checksum_filename < "${image}.sha256"
-          jq -n \
-            --arg version "${version}" \
-            --arg published_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg build_commit "${BUILD_COMMIT}" \
-            --arg build_commit_title "${commit_title}" \
-            --arg container "${IMAGE_REGISTRY}/${IMAGE_NAME}:${CONTAINER_TAG}" \
-            --arg digest "${CONTAINER_DIGEST}" \
-            --arg filename "${filename}" \
-            --arg key "${prefix}/${filename}" \
-            --arg public_url "${R2_PUBLIC_URL%/}" \
-            --arg sha256 "${image_sha256}" \
-            --argjson size "$(stat -c %s "${image}")" \
-            '{version: $version,
-              published_at: $published_at, build_commit: $build_commit, build_commit_title: $build_commit_title,
-              container: {reference: $container, digest: $digest},
-              image: {filename: $filename, key: $key, url: ($public_url + "/" + $key),
-                size: $size, sha256: $sha256},
-              checksum: {key: ($key + ".sha256"), url: ($public_url + "/" + $key + ".sha256")}}' \
-            > output/current-build.json
-          publisher=.github/scripts/publish-channel-index.py
-          # Historical Preview source commits use the original publisher filename.
-          if [ ! -f "${publisher}" ] && [ "${prefix}" = preview ]; then
-            publisher=.github/scripts/publish-preview-index.py
-          fi
-          python3 "${publisher}"
-
-          # Only advertise the download after both objects have been uploaded.
-          echo "image_key=${prefix}/${filename}" >> "${GITHUB_OUTPUT}"
-          echo "checksum_key=${prefix}/${filename}.sha256" >> "${GITHUB_OUTPUT}"
-          {
-            printf '### Disk image uploaded to R2\n\n'
-            printf 'Container: `%s/%s:%s`\n\n' "${IMAGE_REGISTRY}" "${IMAGE_NAME}" "${CONTAINER_TAG}"
-            printf 'Image: `s3://%s/%s/%s`\n\n' "${R2_BUCKET}" "${prefix}" "${filename}"
-            printf 'Checksum: `s3://%s/%s/%s.sha256`\n\n' "${R2_BUCKET}" "${prefix}" "${filename}"
-            if [ -n "${R2_PUBLIC_URL}" ]; then
-              printf '[Download image](%s/%s/%s) · [SHA-256](%s/%s/%s.sha256)\n' \
-                "${R2_PUBLIC_URL%/}" "${prefix}" "${filename}" \
-                "${R2_PUBLIC_URL%/}" "${prefix}" "${filename}"
-              printf '\n[Channel builds](%s/%s/builds.json)\n' "${R2_PUBLIC_URL%/}" "${prefix}"
-            fi
-          } >> "${GITHUB_STEP_SUMMARY}"

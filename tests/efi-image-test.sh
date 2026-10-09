@@ -19,4 +19,4 @@ grep -Fq './post_process/finalize-armada-image.sh output/image/disk.raw' <<< "${
 ! grep -Eq 'disk-abl|disk-efi|-abl.img|-efi.img' <<< "${recipe}"
 grep -Fq 'name: armada-disk${{ matrix.variant == '"'"'desktop'"'"' && '"'"'-desktop'"'"' || '"'"''"'"' }}-pr${{ github.event.pull_request.number }}' "${ROOT}/.github/workflows/pr.yml"
 grep -Fq 'name: ${{ env.DISK_ARTIFACT }}' "${ROOT}/.github/workflows/build-disk.yml"
-! grep -Eq 'matrix|disk-image-abl|disk-image-efi' "${ROOT}/.github/workflows/build-disk.yml"
+! grep -Eq 'disk-image-abl|disk-image-efi' "${ROOT}/.github/workflows/build-disk.yml"
