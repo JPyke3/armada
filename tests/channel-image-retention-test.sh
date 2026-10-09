@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-for channel in preview staging; do
+for channel in preview staging desktop-preview desktop-staging; do
 ARMADA_TEST_CHANNEL="$channel" python3 - "$ROOT" <<'PY'
 import importlib.util
 import json
@@ -14,6 +14,7 @@ import tempfile
 from unittest.mock import patch
 
 channel = os.environ['ARMADA_TEST_CHANNEL']
+image_name = 'armada-desktop' if channel.startswith('desktop-') else 'armada'
 other = 'staging' if channel == 'preview' else 'preview'
 
 path = Path(sys.argv[1]) / '.github/scripts/publish-channel-index.py'
@@ -25,7 +26,7 @@ def expired_keys(objects, current):
     return retention.expired_keys(objects, current, channel)
 
 def image(day):
-    return f'{channel}/armada-202609{day:02}.abcdef0.img.gz'
+    return f'{channel}/{image_name}-202609{day:02}.abcdef0.img.gz'
 
 def obj(key, day):
     return {'Key': key, 'Size': 100, 'LastModified': f'2026-09-{day:02}T00:00:00+00:00'}
@@ -33,8 +34,12 @@ def obj(key, day):
 objects = [obj(image(day) + suffix, day) for day in range(1, 8) for suffix in ('', '.sha256')]
 protected = ['release/armada-20260901.img.gz', 'testing/armada-20260901.abcdef0.img.gz', f'{channel}/builds.json', f'{channel}/notes.txt',
              f'{channel}/nested/armada-20260901.abcdef0.img.gz',
-             f'{channel}/armada-custom.img.gz', f'{channel}/armada-20260801.abcdef0.img.gz.sha256']
+             f'{channel}/{image_name}-custom.img.gz', f'{channel}/{image_name}-20260801.abcdef0.img.gz.sha256']
 protected += [f'{other}/armada-20260901.abcdef0.img.gz', f'{other}/armada-20260901.abcdef0.img.gz.sha256']
+# Other variant images and manifests must never be pruned by this channel.
+protected += [f'{prefix}/{name}-20260901.abcdef0.img.gz{suffix}'
+              for prefix, name in [('preview', 'armada'), ('desktop-preview', 'armada-desktop')]
+              if prefix != channel for suffix in ('', '.sha256')]
 objects += [obj(key, 1) for key in protected]
 expected = {image(day) + suffix for day in (1, 2) for suffix in ('', '.sha256')}
 assert set(expired_keys(objects, image(7))) == expected
@@ -45,7 +50,7 @@ assert len(expired_keys(objects, image(1))) == 4
 assert expired_keys([obj(image(1), 1), obj(image(1)+'.sha256', 1)], image(1)) == []
 
 # Incomplete uploads are removed without displacing complete pairs.
-legacy = f'{channel}/armada-20260801.img.gz'
+legacy = f'{channel}/{image_name}-20260801.img.gz'
 assert legacy in expired_keys(objects + [obj(legacy, 1)], image(7))
 assert set(expired_keys(objects + [obj(image(8), 8)], image(7))) == expected | {image(8)}
 empty_checksum = {**obj(image(8) + '.sha256', 8), 'Size': 0}
@@ -69,7 +74,7 @@ for current, listing in [('release/armada-20260901.img.gz', objects),
 
 env = {'R2_ENDPOINT_URL': 'https://fixture.example.com', 'R2_BUCKET': 'fixture',
        'R2_PREFIX': channel}
-unmanaged = f'{channel}/armada-20260801.1234567.img.gz'
+unmanaged = f'{channel}/{image_name}-20260801.1234567.img.gz'
 objects += [obj(unmanaged, 1), obj(unmanaged + '.sha256', 1)]
 tmp = tempfile.TemporaryDirectory(prefix='armada-preview-index-')
 os.chdir(tmp.name)

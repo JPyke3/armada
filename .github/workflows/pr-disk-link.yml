@@ -13,11 +13,15 @@ permissions:
 
 jobs:
   comment:
-    name: Link disk image
+    name: Link ${{ matrix.variant }} disk image
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [handheld, desktop]
     if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-24.04
     concurrency:
-      group: pr-disk-link-${{ github.event.workflow_run.id }}
+      group: pr-disk-link-${{ matrix.variant }}-${{ github.event.workflow_run.id }}
       cancel-in-progress: true
     steps:
       - name: Post the link
@@ -25,14 +29,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          MARKER: "<!-- armada-disk-image -->"
+          VARIANT: ${{ matrix.variant }}
+          ARTIFACT_PREFIX: armada-disk${{ matrix.variant == 'desktop' && '-desktop' || '' }}-pr
+          MARKER: "<!-- armada-disk-image${{ matrix.variant == 'desktop' && '-desktop' || '' }} -->"
         run: |
           set -euo pipefail
           # workflow_run.pull_requests is empty for fork PRs, so take the number
           # from the artifact name, which carries it already.
           entry=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
-            jq -r '.artifacts[] | select(.expired | not)
-                   | select(.name | test("^armada-disk-pr[0-9]+$"))
+            jq -r --arg prefix "${ARTIFACT_PREFIX}" '.artifacts[] | select(.expired | not)
+                   | select(.name | test("^" + $prefix + "[0-9]+$"))
                    | "\(.id) \(.name)"' | head -1)
           if [ -z "${entry}" ]; then
             echo "No disk image artifact on run ${RUN_ID}, nothing to link."
@@ -40,7 +46,7 @@ jobs:
           fi
           id="${entry%% *}"
           name="${entry##* }"
-          pr="${name#armada-disk-pr}"
+          pr="${name#"${ARTIFACT_PREFIX}"}"
 
           # A PR controls its own workflow, so the number in the artifact name is
           # untrusted: it must match the commit this run actually built.
@@ -52,7 +58,7 @@ jobs:
 
           url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts/${id}"
           body="${MARKER}
-          ### Disk image
+          ### ${VARIANT^} disk image
 
           [\`${name}\`](${url}), built from ${HEAD_SHA}
 

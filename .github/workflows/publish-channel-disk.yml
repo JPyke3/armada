@@ -4,6 +4,11 @@ name: Publish disk image
 on:
   workflow_dispatch:
     inputs:
+      variant:
+        description: "Image variant to publish"
+        type: choice
+        options: [handheld, desktop]
+        default: handheld
       channel:
         description: "Channel to publish downloads for"
         type: choice
@@ -29,6 +34,7 @@ jobs:
         id: source
         env:
           CHANNEL: ${{ inputs.channel }}
+          IMAGE_SUFFIX: ${{ inputs.variant == 'desktop' && '-desktop' || '' }}
         run: |
           set -euo pipefail
           case "${CHANNEL}" in
@@ -37,7 +43,7 @@ jobs:
             *) exit 1 ;;
           esac
           echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
-          image="ghcr.io/${GITHUB_REPOSITORY,,}:${tag}"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}${IMAGE_SUFFIX}:${tag}"
           inspection=$(skopeo inspect --override-arch arm64 "docker://${image}")
           digest=$(jq -er '.Digest' <<< "${inspection}")
           revision=$(jq -er '.Labels["org.opencontainers.image.revision"]' <<< "${inspection}")
@@ -53,6 +59,7 @@ jobs:
     needs: resolve
     uses: ./.github/workflows/build-disk.yml
     with:
+      variant: ${{ inputs.variant }}
       tag: ${{ needs.resolve.outputs.tag }}
       channel: ${{ inputs.channel }}
       publish_r2: true

@@ -424,7 +424,6 @@ jobs:
           compression-level: 0
 
       - name: Load the image for the disk build
-        if: matrix.variant == 'handheld'
         run: |
           set -euxo pipefail
           # bootc-image-builder runs under sudo, so the image has to live in
@@ -433,7 +432,6 @@ jobs:
             "containers-storage:localhost/${IMAGE_NAME}:${DISK_TAG}"
 
       - name: Build disk image
-        if: matrix.variant == 'handheld'
         run: |
           set -euxo pipefail
           JUST_BIN=$(command -v just)
@@ -443,7 +441,6 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" output
 
       - name: Prepare disk image
-        if: matrix.variant == 'handheld'
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -461,10 +458,9 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload disk image
-        if: matrix.variant == 'handheld'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: armada-disk-pr${{ github.event.pull_request.number }}
+          name: armada-disk${{ matrix.variant == 'desktop' && '-desktop' || '' }}-pr${{ github.event.pull_request.number }}
           path: |
             output/armada-*.img.gz
             output/armada-*.img.gz.sha256

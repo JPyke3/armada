@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-for channel in preview staging; do
+for channel in preview staging desktop-preview desktop-staging; do
 ARMADA_TEST_CHANNEL="$channel" python3 - "$ROOT" <<'PY'
 import hashlib
 import json
@@ -15,7 +15,8 @@ import tempfile
 import textwrap
 
 channel = os.environ["ARMADA_TEST_CHANNEL"]
-tag = "testing" if channel == "preview" else "staging"
+image_name = 'armada-desktop' if channel.startswith('desktop-') else 'armada'
+tag = "testing" if channel.endswith("preview") else "staging"
 
 workflow = (Path(sys.argv[1]) / '.github/workflows/build-disk.yml').read_text()
 # Extraction depends on the step name and the following step boundary.
@@ -64,7 +65,7 @@ registry_mock = '''#!/usr/bin/env python3
 import os, sys
 from pathlib import Path
 assert sys.argv[1:] == ['inspect', '--no-creds', '--override-arch', 'arm64', '--format', '{{.Digest}}',
-                        'docker://ghcr.io/armada-os/armada:' + os.environ['CONTAINER_TAG']]
+                        'docker://ghcr.io/armada-os/' + os.environ['IMAGE_NAME'] + ':' + os.environ['CONTAINER_TAG']]
 case = os.environ['TEST_CASE']
 if case == 'registry-failure':
     sys.exit(1)
@@ -97,7 +98,7 @@ for case in ['success', 'relative-urls', 'image-failure', 'checksum-failure', 'm
         skopeo.chmod(0o755)
         (root/'output').mkdir()
         version = f'20260908.{commit[:7]}'
-        filename = f'armada-{version}.img.gz'
+        filename = f'{image_name}-{version}.img.gz'
         content = b'disk image fixture'
         digest = hashlib.sha256(content).hexdigest()
         (root/'output'/filename).write_bytes(content)
@@ -111,7 +112,7 @@ for case in ['success', 'relative-urls', 'image-failure', 'checksum-failure', 'm
                    R2_PUBLIC_URL='' if case == 'relative-urls' else 'https://downloads.armadaos.dev/',
                    CONTAINER_TAG=tag, CONTAINER_DIGEST='sha256:'+'a'*64, BUILD_COMMIT=commit,
                    TEST_COMMIT_TITLE=title,
-                   DISK_IMAGE=f'output/{filename}', IMAGE_REGISTRY='ghcr.io/armada-os', IMAGE_NAME='armada',
+                   DISK_IMAGE=f'output/{filename}', IMAGE_REGISTRY='ghcr.io/armada-os', IMAGE_NAME=image_name,
                    GITHUB_OUTPUT=str(root/'outputs'), GITHUB_STEP_SUMMARY=str(root/'summary'))
         if case == 'invalid-channel':
             env['R2_PREFIX'] = 'release'
@@ -133,7 +134,7 @@ for case in ['success', 'relative-urls', 'image-failure', 'checksum-failure', 'm
             latest = index['builds'][0]
             assert 'schema_version' not in latest and 'channel' not in latest
             assert latest['version'] == version
-            assert latest['container'] == {'reference': f'ghcr.io/armada-os/armada:{tag}', 'digest': 'sha256:'+'a'*64}
+            assert latest['container'] == {'reference': f'ghcr.io/armada-os/{image_name}:{tag}', 'digest': 'sha256:'+'a'*64}
             assert latest['build_commit'] == commit
             assert latest['build_commit_title'] == title
             assert latest['image']['filename'] == filename

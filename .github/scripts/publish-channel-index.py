@@ -12,9 +12,10 @@ KEEP_IMAGES = 5
 
 
 def image_pattern(channel):
-    if channel not in ("preview", "staging"):
-        raise ValueError("Disk publishing is restricted to preview/ and staging/")
-    return re.compile(rf"{channel}/armada-\d{{8}}(?:\.[0-9a-f]{{7,40}})?\.img\.gz")
+    if channel not in ("preview", "staging", "desktop-preview", "desktop-staging"):
+        raise ValueError("Unknown disk publication channel")
+    prefix = "armada-desktop" if channel.startswith("desktop-") else "armada"
+    return re.compile(rf"{channel}/{prefix}-\d{{8}}(?:\.[0-9a-f]{{7,40}})?\.img\.gz")
 
 
 def expired_keys(objects, current_key, channel="preview"):

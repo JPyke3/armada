@@ -3,8 +3,17 @@ name: Build disk image
 
 on:
   workflow_dispatch:
+    inputs:
+      variant:
+        description: "Image variant to build"
+        type: choice
+        options: [handheld, desktop]
+        default: handheld
   workflow_call:
     inputs:
+      variant:
+        type: string
+        default: handheld
       tag:
         type: string
         default: ""
@@ -27,16 +36,18 @@ on:
         required: false
 
 env:
-  IMAGE_NAME: ${{ github.event.repository.name }}
+  IMAGE_VARIANT: ${{ inputs.variant || 'handheld' }}
+  IMAGE_NAME: ${{ github.event.repository.name }}${{ inputs.variant == 'desktop' && '-desktop' || '' }}
+  DISK_ARTIFACT: armada-disk-image-${{ inputs.variant || 'handheld' }}
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"
   BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest"
   R2_ENDPOINT_URL: ${{ vars.R2_ENDPOINT_URL }}
   R2_BUCKET: ${{ vars.R2_BUCKET }}
-  R2_PREFIX: ${{ inputs.channel || 'preview' }}
+  R2_PREFIX: ${{ inputs.variant == 'desktop' && 'desktop-' || '' }}${{ inputs.channel || 'preview' }}
   R2_PUBLIC_URL: ${{ vars.R2_PUBLIC_URL }}
 
 concurrency:
-  group: ${{ inputs.publish_r2 && format('{0}-disk', inputs.channel) || format('build-disk-{0}', github.ref || github.run_id) }}
+  group: ${{ inputs.variant || 'handheld' }}-${{ inputs.publish_r2 && format('{0}-disk', inputs.channel) || format('build-disk-{0}', github.ref || github.run_id) }}
   cancel-in-progress: false
   queue: max
 
@@ -113,7 +124,11 @@ jobs:
           EXPECTED_REVISION: ${{ inputs.source_ref || github.sha }}
         run: |
           set -euo pipefail
-          image="ghcr.io/${GITHUB_REPOSITORY,,}:${CONTAINER_TAG}"
+          case "${IMAGE_VARIANT}" in
+            handheld|desktop) ;;
+            *) echo "::error::Unknown image variant"; exit 1 ;;
+          esac
+          image="${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}:${CONTAINER_TAG}"
           inspection=$(skopeo inspect --no-creds --override-arch arm64 "docker://${image}")
           digest=$(jq -er '.Digest' <<< "${inspection}")
           revision=$(jq -er '.Labels["org.opencontainers.image.revision"]' <<< "${inspection}")
@@ -193,7 +208,7 @@ jobs:
       - name: Upload disk image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: armada-disk-image
+          name: ${{ env.DISK_ARTIFACT }}
           path: |
             output/armada-*.img.gz
             output/armada-*.img.gz.sha256
@@ -225,7 +240,7 @@ jobs:
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "${GITHUB_ENV}"
           echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> "${GITHUB_ENV}"
           mkdir -p output
-          gh run download "${GITHUB_RUN_ID}" --name armada-disk-image --dir output
+          gh run download "${GITHUB_RUN_ID}" --name "${DISK_ARTIFACT}" --dir output
 
       - name: Publish disk image to R2
         id: publish
@@ -254,7 +269,7 @@ jobs:
           prefix="${prefix%/}"
 
           case "${prefix}:${CONTAINER_TAG}" in
-            preview:testing|staging:staging) ;;
+            preview:testing|staging:staging|desktop-preview:testing|desktop-staging:staging) ;;
             *) echo "::error::Invalid disk publication channel/tag."; exit 1 ;;
           esac
 
@@ -288,6 +303,7 @@ jobs:
 
           require_current_channel
           version="${filename#armada-}"
+          version="${version#desktop-}"
           version="${version%.img.gz}"
           read -r image_sha256 checksum_filename < "${image}.sha256"
           jq -n \

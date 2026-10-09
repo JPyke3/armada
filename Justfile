@@ -284,7 +284,7 @@ build-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_build
 [group('Build Virtual Machine Image')]
 build-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "iso" "disk_config/iso.toml")
 
-# Output: ./output/armada-<version>.img.gz  (version = container label, date.sha)
+# Output: ./output/armada[-desktop]-<version>.img.gz (from container labels)
 [group('Armada')]
 build-armada-image $target_image=("localhost/" + image_name) $tag=default_tag: (build-raw target_image tag)
     #!/usr/bin/env bash
@@ -292,10 +292,17 @@ build-armada-image $target_image=("localhost/" + image_name) $tag=default_tag: (
     echo "Finalizing the freshly-built raw image..."
     version=$(podman inspect -t image "${target_image}:${tag}" \
                 | jq -r '.[0].Config.Labels["org.opencontainers.image.version"] // empty')
+    variant=$(podman inspect -t image "${target_image}:${tag}" \
+                | jq -r '.[0].Config.Labels["dev.armada.variant"] // "handheld"')
+    case "${variant}" in
+        handheld) image_prefix=armada ;;
+        desktop) image_prefix=armada-desktop ;;
+        *) echo "Unknown image variant: ${variant}" >&2; exit 1 ;;
+    esac
     ./post_process/make-bootimg.sh output/image/disk.raw
     # Name from the container's version so a flashed device traces to its build.
     if [[ -n "$version" && "$version" != unknown ]]; then
-        export OUT="output/armada-${version}.img.gz"
+        export OUT="output/${image_prefix}-${version}.img.gz"
     fi
     ./post_process/finalize-armada-image.sh output/image/disk.raw
 
