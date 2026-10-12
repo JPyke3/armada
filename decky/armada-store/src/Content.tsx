@@ -17,6 +17,7 @@ const SECTIONS = [
   { key: "applications", title: "categories.applications" },
   { key: "android", title: "categories.android" },
   { key: "plugins", title: "categories.plugins" },
+  { key: "mods", title: "categories.mods" },
 ] as const;
 
 // Only these two backend-authored notes are localized; any other note is shown
@@ -48,6 +49,20 @@ const androidFeeds = [
 ] as const;
 const androidCache = new Map<string, AndroidPages>();
 let androidSearch = { query: "", category: "APPLICATION", pager: new AndroidPages(), loaded: false, busy: false, message: "" };
+
+// A mod has no artwork of its own, so its row borrows the icon Steam holds for the game.
+function gameIcon(appids: number[]): string {
+  try {
+    const store = (window as any).appStore;
+    for (const appid of appids) {
+      const overview = store?.GetAppOverviewByAppID?.(appid);
+      const url = overview && store.GetIconURLForApp?.(overview);
+      if (url) return url;
+    }
+  } catch (error) {
+  }
+  return "";
+}
 
 export function Content() {
   const locale = useLocale();
@@ -256,6 +271,11 @@ export function Content() {
     const conflicts = status?.installed?.[app.id]?.conflicts || [];
     const shortcut = status?.shortcuts?.[app.id];
     const items: ReactNode[] = [];
+    const info = status?.installed?.[app.id];
+    if (app.installType === "gamemod") {
+      if (app.summary) items.push(<MenuItem key="summary" disabled>{menuText(app.summary)}</MenuItem>);
+      if (info?.version) items.push(<MenuItem key="version" disabled>{menuText(t("mods.installedVersion", { version: info.version }))}</MenuItem>);
+    }
     if (active) {
       items.push(<MenuItem key="cancel" onSelected={() => run(backend.cancelJob(app.id))}>{menuText(t("common.cancel"))}</MenuItem>);
     } else {
@@ -340,7 +360,9 @@ export function Content() {
           </MenuItem>,
         );
       }
-      if (installed && app.installType !== "system") {
+      if (installed && info?.byHand) {
+        items.push(<MenuItem key="by-hand" disabled>{menuText(t("mods.installedByHand"))}</MenuItem>);
+      } else if (installed && app.installType !== "system") {
         items.push(
           <MenuItem key="uninstall" tone="destructive" onSelected={() => run(uninstallFlow(app, shortcut), () => { refreshCatalog().catch(() => {}); })}>
             {menuText(app.imported ? t("actions.removeFromStore") : t("actions.uninstall"))}
@@ -439,6 +461,14 @@ export function Content() {
       }).catch(() => {});
   };
 
+  const addLocalMod = () => {
+    openFilePicker(FileSelectionType.FILE, catalog?.home || "/var/home/armada", true, true)
+      .then((result) => {
+        const path = result.realpath || result.path;
+        if (path) run(backend.addMod(path).then(refreshCatalog), () => toast(t("categories.mods"), t("mods.added")));
+      }).catch(() => {});
+  };
+
   const categoryApps = (key: string) =>
     (cachedCatalog?.apps || catalog?.apps || [])
       .filter((app) => app.category === key)
@@ -452,6 +482,37 @@ export function Content() {
           <PanelSectionRow>
             <div>{message ?? t("common.loading")}</div>
           </PanelSectionRow>
+        </PanelSection>
+      </div>
+    );
+  }
+
+  if (view === "mods") {
+    const mods = categoryApps("mods").map((app) => ({ ...app, icon: app.icon || gameIcon(app.steamAppids) }));
+    const isInstalled = (app: CatalogApp) => !!status?.installed?.[app.id]?.installed;
+    const rows = (apps: CatalogApp[]) => apps.map((app) => (
+      <AppRow
+        key={app.id}
+        app={app}
+        job={jobs.get(app.id) || null}
+        info={status?.installed?.[app.id] || null}
+        updateAvailable={updates[app.id] != null}
+        onMenu={() => openMenu(app)}
+      />
+    ));
+    const featured = mods.filter((app) => app.canInstall !== false);
+    const installedMods = mods.filter(isInstalled);
+    return (
+      <div className={fontClass} lang={locale}>
+        <style>{styles}</style>
+        <PanelSection title={t("categories.mods")}>
+          <PanelSectionRow><ButtonItem layout="below" onClick={() => setView(null)}>{t("common.back")}</ButtonItem></PanelSectionRow>
+          <PanelSectionRow><ButtonItem layout="below" onClick={addLocalMod}>{t("mods.addLocalArchive")}</ButtonItem></PanelSectionRow>
+        </PanelSection>
+        <PanelSection title={t("mods.featured")}>{rows(featured)}</PanelSection>
+        <PanelSection title={t("common.installed")}>
+          {installedMods.length ? rows(installedMods)
+            : <PanelSectionRow><div style={{ opacity: 0.65 }}>{t("mods.noneInstalled")}</div></PanelSectionRow>}
         </PanelSection>
       </div>
     );

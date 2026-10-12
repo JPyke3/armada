@@ -30,6 +30,7 @@ pkgs=(
 
     # CLI tools
     binutils
+    bubblewrap
     btop
     btrfs-progs
     cabextract
@@ -163,6 +164,7 @@ desktop_pkgs=(
     libdbusmenu-gtk3
     qt6-qttools
     qt6-qtvirtualkeyboard
+    webkitgtk6.0
     xorg-x11-server-Xwayland
     zenity
 
