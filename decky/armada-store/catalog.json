@@ -422,6 +422,7 @@
       "name": "Hollow Knight: Companion",
       "summary": "Map, charms and inventory on the second screen",
       "category": "mods",
+      "dualScreen": true,
       "install": {
         "type": "gamemod",
         "url": "https://github.com/virtudude/armada-mods/releases/download/second-screen-hollow-knight/v0.1.0/second-screen-hollow-knight-0.1.0.tar.gz",
@@ -435,6 +436,7 @@
       "name": "Balatro: Run Tracker",
       "summary": "Blinds, jokers, deck and hand levels on the second screen",
       "category": "mods",
+      "dualScreen": true,
       "install": {
         "type": "gamemod",
         "url": "https://github.com/virtudude/armada-mods/releases/download/second-screen-balatro/v0.1.0/second-screen-balatro-0.1.0.tar.gz",
@@ -448,6 +450,7 @@
       "name": "CrossCode: Status and Quick Items",
       "summary": "Status, touch items and quests on the second screen",
       "category": "mods",
+      "dualScreen": true,
       "install": {
         "type": "gamemod",
         "url": "https://github.com/virtudude/armada-mods/releases/download/second-screen-crosscode/v0.1.0/second-screen-crosscode-0.1.0.tar.gz",
@@ -461,6 +464,7 @@
       "name": "Classic Marathon: Suit Display",
       "summary": "Shield, oxygen, motion sensor and weapons on the second screen",
       "category": "mods",
+      "dualScreen": true,
       "install": {
         "type": "gamemod",
         "url": "https://github.com/virtudude/armada-mods/releases/download/second-screen-marathon/v0.1.0/second-screen-marathon-0.1.0.tar.gz",
@@ -474,6 +478,7 @@
       "name": "Duke Nukem 3D: Gear",
       "summary": "Health, ammo, weapons and items on the second screen",
       "category": "mods",
+      "dualScreen": true,
       "install": {
         "type": "gamemod",
         "url": "https://github.com/virtudude/armada-mods/releases/download/second-screen-duke-nukem-3d/v0.1.0/second-screen-duke-nukem-3d-0.1.0.tar.gz",

@@ -9,6 +9,33 @@ trap 'rm -rf "$WORK"' EXIT
 
 python3 -m compileall -q "$STORE/main.py" "$STORE/py_modules/armada_store"
 
+# Device filtering uses the same profiles as Armada's sessions.
+python3 - "$ROOT" "$STORE" <<'PYTEST'
+import os, pathlib, sys
+from unittest.mock import patch
+root, store = map(pathlib.Path, sys.argv[1:])
+sys.path.insert(0, str(store / "py_modules"))
+from armada_store import catalog
+
+os.environ["ARMADA_DEVICE_ENV"] = str(root / "system_files/usr/libexec/armada/device-env")
+os.environ["ARMADA_DEVICE_DIR"] = str(root / "system_files/usr/lib/armada/devices")
+apps = catalog.bundled_apps()
+mod_ids = {app["id"] for app in apps if app.get("dualScreen")}
+assert mod_ids
+# An unrestricted/local mod must remain manageable on a single-screen device.
+apps.append({"id": "local-mod", "category": "mods", "canInstall": False})
+with patch.object(catalog, "all_apps", return_value=apps):
+    for model, dual in (("AYN Thor", True), ("AYN Thor Lite", True),
+                        ("AYANEO Pocket DS", True), ("AYN Odin 2", False), ("unknown", False)):
+        os.environ["ARMADA_MODEL"] = model
+        visible = {app["id"] for app in catalog.catalog_payload()["apps"]}
+        expected = {app["id"] for app in apps if dual or not app.get("dualScreen")}
+        assert visible == expected, (model, visible ^ expected)
+    os.environ["ARMADA_DEVICE_ENV"] = str(root / "nonexistent-device-env")
+    assert not mod_ids.intersection(app["id"] for app in catalog.catalog_payload()["apps"])
+print("catalog: dual-screen requirements filter mods; unrestricted apps remain visible")
+PYTEST
+
 # The catalog is data the backend trusts; a typo here breaks every install.
 python3 - "$STORE" <<'PY'
 import json, re, sys, pathlib

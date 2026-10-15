@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shlex
 import stat
 import subprocess
 import threading
@@ -200,9 +201,24 @@ def _ensure_user_executable(path):
         os.close(fd)
 
 
+def _has_secondary_screen():
+    try:
+        result = subprocess.run(
+            [os.environ.get("ARMADA_DEVICE_ENV", "/usr/libexec/armada/device-env")],
+            capture_output=True, text=True, timeout=5, check=True, env=clean_env(),
+        )
+        return bool(dict(token.split("=", 1) for token in shlex.split(result.stdout))
+                    .get("ARMADA_SECONDARY_CONNECTOR"))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+
+
 def catalog_payload():
+    dual_screen = _has_secondary_screen()
     apps = []
     for app in all_apps():
+        if app.get("dualScreen") and not dual_screen:
+            continue
         install = app.get("install") or {}
         apps.append({
             "id": app.get("id") or "",

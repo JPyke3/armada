@@ -608,6 +608,7 @@ export function Content() {
       <PanelSection title="Armada Store">
         {SECTIONS.map(({ key, title }) => {
           const apps = categoryApps(key);
+          if (key === "mods" && !apps.length) return null;
           const activeJob = apps
             .map((app) => jobs.get(app.id))
             .find((job) => job && !TERMINAL_PHASES.includes(job.phase));
