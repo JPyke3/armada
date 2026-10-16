@@ -463,6 +463,8 @@
 };
 
 &tlmm {
+	gpio-reserved-ranges = <20 4>, <111 2>, <118 1>;
+
 	sdc2_default_state: sdc2-default-state {
 		clk-pins {
 			pins = "gpio62";
