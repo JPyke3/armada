@@ -349,6 +349,7 @@
 
 		touchscreen-size-x = <1080>;
 		touchscreen-size-y = <1920>;
+		touchscreen-inverted-y;
 	};
 };
 
@@ -368,7 +369,7 @@
 		vci-supply = <&vreg_l19b>;
 		vdd-supply = <&vreg_l1g>;
 		reset-gpios = <&tlmm 12 GPIO_ACTIVE_LOW>;
-		rotation = <90>;
+		rotation = <270>;
 
 		pinctrl-0 = <&duo_top_panel_reset>, <&duo_top_panel_te>;
 		pinctrl-1 = <&duo_top_panel_reset_sleep>, <&duo_top_panel_te>;
