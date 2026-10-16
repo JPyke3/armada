@@ -888,3 +888,7 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada implementation from the unit's Android panel properties.
   upstream: No.
   notes: Adds `vtdr6130,rpduo` to the VTDR6130 COG driver.
+- `patches/1113-drm-panel-il97680a-add-pocket-duo.patch`
+  source: Armada implementation from the unit's Android panel properties and GPIO capture.
+  upstream: No.
+  notes: Reuses the Nova IL97680A driver for the Duo bottom panel at 60 Hz, with command-mode packets and ordered three-supply power sequencing.

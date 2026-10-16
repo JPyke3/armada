@@ -83,7 +83,7 @@
 		gpio = <&tlmm 69 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <233>;
-		status = "disabled";
+		status = "okay";
 	};
 
 	vci_panel_bottom: regulator-bottom-panel-vci {
@@ -94,7 +94,7 @@
 		gpio = <&tlmm 70 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		startup-delay-us = <233>;
-		status = "disabled";
+		status = "okay";
 	};
 
 	vddio_touch_bottom: regulator-bottom-touch-vddio {
@@ -368,7 +368,7 @@
 		vci-supply = <&vreg_l19b>;
 		vdd-supply = <&vreg_l1g>;
 		reset-gpios = <&tlmm 12 GPIO_ACTIVE_LOW>;
-		rotation = <180>;
+		rotation = <90>;
 
 		pinctrl-0 = <&duo_top_panel_reset>, <&duo_top_panel_te>;
 		pinctrl-1 = <&duo_top_panel_reset_sleep>, <&duo_top_panel_te>;
@@ -394,7 +394,7 @@
 
 &mdss_dsi1 {
 	vdda-supply = <&vreg_l4b>;
-	status = "disabled";
+	status = "okay";
 
 	panel@0 {
 		compatible = "il97680a,rpduo";
@@ -404,6 +404,7 @@
 		vci-supply = <&vci_panel_bottom>;
 		vdd-supply = <&vreg_l1g>;
 		reset-gpios = <&tlmm 73 GPIO_ACTIVE_LOW>;
+		rotation = <0>;
 
 		pinctrl-0 = <&duo_bottom_panel_reset>, <&duo_bottom_panel_te>;
 		pinctrl-names = "default";
@@ -423,7 +424,7 @@
 
 &mdss_dsi1_phy {
 	vdds-supply = <&vreg_l2b>;
-	status = "disabled";
+	status = "okay";
 };
 
 &pm7550ba_eusb2_repeater {
