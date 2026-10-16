@@ -686,6 +686,9 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/0622-drm-msm-a6xx-mask-the-hfi-interrupt-before-booting-the-gmu.patch`
   source: armada
   upstream: local
+- `dts/sm7750-retroidpocket-duo.dts`
+  source: armada
+  upstream: local
 - `dts/qcs8550-ayaneo-pocketace.dts`
   source: https://github.com/ROCKNIX/distribution/blob/bcf3b5bc574990b96543484575b06f912153a715/projects/ROCKNIX/devices/SM8550/linux/dts/qcom/qcs8550-ayaneo-pocketace.dts
 - `dts/qcs8550-ayaneo-pocket-common.dtsi`
@@ -845,3 +848,43 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: armada
   upstream: local
   notes: Uses single-channel associated scans with TX draining and home-channel rest. Tested on KONKR Pocket FIT Elite.
+- `patches/1100-drm-msm-a6xx-fix-a730-hwcg.patch`
+  source: https://git.kernel.org/torvalds/c/01bcc0398f43099acb407a6067481e635c3e1b84
+  upstream: https://git.kernel.org/torvalds/c/01bcc0398f43099acb407a6067481e635c3e1b84
+- `patches/1101-drm-msm-a6xx-rename-gbif-cx-config.patch`
+  source: https://git.kernel.org/torvalds/c/352116dbc4fc61ae22eae748da36e46a3f45f65c
+  upstream: https://git.kernel.org/torvalds/c/352116dbc4fc61ae22eae748da36e46a3f45f65c
+- `patches/1102-drm-msm-a6xx-add-adreno-722.patch`
+  source: https://git.kernel.org/torvalds/c/a25fd4227f59b9147ae6d23336878c28e5437a4d
+  upstream: https://git.kernel.org/torvalds/c/a25fd4227f59b9147ae6d23336878c28e5437a4d
+- `patches/1103-dt-bindings-arm-smmu-eliza-gpu.patch`
+  source: https://git.kernel.org/torvalds/c/925f98235a729a87e632d6366fc749faac0463b4
+  upstream: https://git.kernel.org/torvalds/c/925f98235a729a87e632d6366fc749faac0463b4
+- `patches/1104-dt-bindings-display-msm-adreno-722.patch`
+  source: https://git.kernel.org/torvalds/c/0b69e4f4ee325ee0b50396657fd19d4d7b0a6294
+  upstream: https://git.kernel.org/torvalds/c/0b69e4f4ee325ee0b50396657fd19d4d7b0a6294
+- `patches/1105-dt-bindings-clock-eliza-gpucc.patch`
+  source: https://git.kernel.org/torvalds/c/26461dcf5de1a3645bf9bdb1558f12ea20df991f
+  upstream: https://git.kernel.org/torvalds/c/26461dcf5de1a3645bf9bdb1558f12ea20df991f
+- `patches/1106-clk-qcom-add-eliza-gpucc.patch`
+  source: https://git.kernel.org/torvalds/c/4cfe35f2ef21c4b6281d8b73fdbabaa6a8aa1440
+  upstream: https://git.kernel.org/torvalds/c/4cfe35f2ef21c4b6281d8b73fdbabaa6a8aa1440
+  notes: Makefile context refreshed for Linux 7.2.6, which has no Eliza video clock entry; driver unchanged.
+- `patches/1107-arm64-dts-qcom-eliza-gpu-clock.patch`
+  source: https://lore.kernel.org/r/20260806-eliza-mm-cc-v9-v10-10-6ba52dd14343@oss.qualcomm.com
+  upstream: https://lore.kernel.org/r/20260806-eliza-mm-cc-v9-v10-10-6ba52dd14343@oss.qualcomm.com
+  notes: Extracted only the GPUCC header and node from the multimedia clock series; camera/video controllers omitted. GPU clock and power-domain definitions unchanged.
+- `patches/1108-arm64-dts-qcom-eliza-gpu-smmu.patch`
+  source: https://git.kernel.org/torvalds/c/0cb81794dea5b236122578bd49e3e6bfdc6adf87
+  upstream: https://git.kernel.org/torvalds/c/0cb81794dea5b236122578bd49e3e6bfdc6adf87
+- `patches/1109-arm64-dts-qcom-eliza-gpu.patch`
+  source: https://git.kernel.org/torvalds/c/5cc169156d877a4aa947092dd3c9dbd784d62f93
+  upstream: https://git.kernel.org/torvalds/c/5cc169156d877a4aa947092dd3c9dbd784d62f93
+- `patches/1110-arm64-dts-qcom-eliza-gpu-cooling.patch`
+  source: https://git.kernel.org/torvalds/c/c53d30b2814e0f0215cdafe9ccf691eace2949ff
+  upstream: https://git.kernel.org/torvalds/c/c53d30b2814e0f0215cdafe9ccf691eace2949ff
+  notes: Include context refreshed for Linux 7.2.6; GPU thermal trips and cooling maps unchanged.
+- `patches/1111-drm-panel-vtdr6130-add-pocket-duo.patch`
+  source: Armada implementation from the unit's Android panel properties.
+  upstream: No.
+  notes: Adds `vtdr6130,rpduo` to the VTDR6130 COG driver.

@@ -15,6 +15,9 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
 - `patches/0003-ir3-disable-bindless-ubo-const-lowering.patch`
   source: https://github.com/ROCKNIX/distribution/blob/0adbe00f1745512609b289ef9435df897c28b780/projects/ROCKNIX/packages/graphics/mesa/patches/SM8550/0001-freedreno-ir3-vulkan-disable-bindless-ubo-const-lowering.patch
   notes: offsets updated for Mesa 26.2.0
+- `patches/0004-freedreno-add-a722-support.patch`
+  source: https://gitlab.freedesktop.org/mesa/mesa/-/commit/803731f7ed4aa8e8265fe0aff08b85efb3f3c7e9
+  notes: Adds native and wildcard-fuse IDs for A722 to the shared Freedreno/Turnip table.
 
 ## Variants
 
