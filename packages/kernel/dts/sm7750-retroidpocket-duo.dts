@@ -573,14 +573,14 @@
 	vccq2-supply = <&vreg_l1d>;
 	vccq2-max-microamp = <750000>;
 	/* Android votes L3G for vddp-ref-clk; mainline supply handling is unresolved. */
-	status = "okay";
+	status = "disabled";
 };
 
 &ufs_mem_phy {
 	vdda-phy-supply = <&vreg_l6b>;
 	vdda-pll-supply = <&vreg_l4b>;
 	/* Android votes L2B for vdda-qref; mainline supply handling is unresolved. */
-	status = "okay";
+	status = "disabled";
 };
 
 &usb {
