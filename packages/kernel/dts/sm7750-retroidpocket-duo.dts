@@ -155,6 +155,7 @@
 		vdd-l7-supply = <&vreg_s1b>;
 		vdd-l8-supply = <&vreg_s1b>;
 		vdd-l12-l14-supply = <&vreg_bob>;
+		vdd-l13-l16-supply = <&vreg_bob>;
 		vdd-l15-l17-l18-l19-l20-l21-l22-l23-supply = <&vreg_bob>;
 		vdd-s1-supply = <&vph_pwr>;
 		vdd-s2-supply = <&vph_pwr>;
@@ -224,6 +225,13 @@
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
+		vreg_l13b: ldo13 {
+			regulator-name = "vreg_l13b";
+			regulator-min-microvolt = <2960000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
 		vreg_l17b: ldo17 {
 			regulator-name = "vreg_l17b";
 			regulator-min-microvolt = <3075000>;
@@ -242,6 +250,13 @@
 			regulator-name = "vreg_l22b";
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3300000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_l23b: ldo23 {
+			regulator-name = "vreg_l23b";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2960000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
@@ -431,7 +446,62 @@
 	status = "disabled";
 };
 
+&sdhc_2 {
+	vmmc-supply = <&vreg_l13b>;
+	vqmmc-supply = <&vreg_l23b>;
+	cd-gpios = <&tlmm 58 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&sdc2_default_state &sdc2_card_det_n>;
+	pinctrl-1 = <&sdc2_sleep_state &sdc2_card_det_n>;
+	pinctrl-names = "default", "sleep";
+	bus-width = <4>;
+	cap-sd-highspeed;
+	max-frequency = <50000000>;
+	no-1-8-v;
+	no-mmc;
+	no-sdio;
+	status = "okay";
+};
+
 &tlmm {
+	sdc2_default_state: sdc2-default-state {
+		clk-pins {
+			pins = "gpio62";
+			function = "sdc2";
+			drive-strength = <16>;
+			bias-disable;
+		};
+
+		cmd-data-pins {
+			pins = "gpio51", "gpio38", "gpio39", "gpio48", "gpio49";
+			function = "sdc2";
+			drive-strength = <10>;
+			bias-pull-up;
+		};
+	};
+
+	sdc2_sleep_state: sdc2-sleep-state {
+		clk-pins {
+			pins = "gpio62";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		cmd-data-pins {
+			pins = "gpio51", "gpio38", "gpio39", "gpio48", "gpio49";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	sdc2_card_det_n: sd-card-det-n-state {
+		pins = "gpio58";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+
 	duo_bottom_panel_reset: bottom-panel-reset-state {
 		pins = "gpio73";
 		function = "gpio";
