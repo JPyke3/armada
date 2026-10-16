@@ -82,6 +82,7 @@
 		regulator-max-microvolt = <1800000>;
 		gpio = <&tlmm 69 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		startup-delay-us = <233>;
 		status = "disabled";
 	};
 
@@ -92,6 +93,7 @@
 		regulator-max-microvolt = <3000000>;
 		gpio = <&tlmm 70 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		startup-delay-us = <233>;
 		status = "disabled";
 	};
 
@@ -375,10 +377,33 @@
 	status = "okay";
 };
 
-/* Lower panel: resolve reset GPIO73 versus pinctrl GPIO127 before enabling. */
 &mdss_dsi1 {
 	vdda-supply = <&vreg_l4b>;
 	status = "disabled";
+
+	panel@0 {
+		compatible = "il97680a,rpduo";
+		reg = <0>;
+
+		vddio-supply = <&vddio_panel_bottom>;
+		vci-supply = <&vci_panel_bottom>;
+		vdd-supply = <&vreg_l1g>;
+		reset-gpios = <&tlmm 73 GPIO_ACTIVE_LOW>;
+
+		pinctrl-0 = <&duo_bottom_panel_reset>, <&duo_bottom_panel_te>;
+		pinctrl-names = "default";
+
+		port {
+			duo_bottom_panel_in: endpoint {
+				remote-endpoint = <&mdss_dsi1_out>;
+			};
+		};
+	};
+};
+
+&mdss_dsi1_out {
+	remote-endpoint = <&duo_bottom_panel_in>;
+	data-lanes = <0 1 2 3>;
 };
 
 &mdss_dsi1_phy {
@@ -407,6 +432,20 @@
 };
 
 &tlmm {
+	duo_bottom_panel_reset: bottom-panel-reset-state {
+		pins = "gpio73";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+
+	duo_bottom_panel_te: bottom-panel-te-state {
+		pins = "gpio121";
+		function = "mdp_vsync";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
 	duo_top_panel_reset: top-panel-reset-state {
 		pins = "gpio12";
 		function = "gpio";
