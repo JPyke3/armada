@@ -75,6 +75,15 @@
 		regulator-boot-on;
 	};
 
+	vdd_gamepad: regulator-gamepad {
+		compatible = "regulator-fixed";
+		regulator-name = "gamepad-vdd";
+		gpio = <&tlmm 56 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		pinctrl-0 = <&gamepad_vdd_default>;
+		pinctrl-names = "default";
+	};
+
 	vddio_panel_bottom: regulator-bottom-panel-vddio {
 		compatible = "regulator-fixed";
 		regulator-name = "bottom-panel-vddio";
@@ -442,6 +451,42 @@
 	status = "okay";
 };
 
+&qupv3_2 {
+	uart10: serial@888000 {
+		compatible = "qcom,geni-uart";
+		reg = <0x0 0x00888000 0x0 0x4000>;
+		interrupts = <GIC_SPI 584 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&gcc GCC_QUPV3_WRAP2_S2_CLK>;
+		clock-names = "se";
+		interconnects = <&clk_virt MASTER_QUP_CORE_2 QCOM_ICC_TAG_ALWAYS
+				 &clk_virt SLAVE_QUP_CORE_2 QCOM_ICC_TAG_ALWAYS>,
+				<&gem_noc MASTER_APPSS_PROC QCOM_ICC_TAG_ALWAYS
+				 &config_noc SLAVE_QUP_2 QCOM_ICC_TAG_ALWAYS>;
+		interconnect-names = "qup-core", "qup-config";
+		pinctrl-0 = <&qup_uart10_default>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		gamepad {
+			compatible = "gamepad,rsinput";
+			vdd-supply = <&vdd_gamepad>;
+			boot-gpios = <&tlmm 9 GPIO_ACTIVE_HIGH>;
+			enable-gpios = <&tlmm 54 GPIO_ACTIVE_HIGH>;
+			reset-gpios = <&tlmm 8 GPIO_ACTIVE_HIGH>;
+			pinctrl-0 = <&gamepad_default>;
+			pinctrl-names = "default";
+			gamepad-name = "Retroid Pocket Duo Gamepad";
+			gamepad-bus = <0x0003>;
+			gamepad-vid = <0x2022>;
+			gamepad-pid = <0x3001>;
+			axis-range = <1500>;
+			axis-center = <2000>;
+			trigger-range = <1900>;
+			trigger-release = <2000>;
+		};
+	};
+};
+
 &remoteproc_adsp {
 	firmware-name = "qcom/sm7750/retroidpocket/duo/adsp.mbn",
 			"qcom/sm7750/retroidpocket/duo/adsp_dtb.mbn";
@@ -466,6 +511,27 @@
 
 &tlmm {
 	gpio-reserved-ranges = <20 4>, <111 2>, <118 1>;
+
+	gamepad_default: gamepad-default-state {
+		pins = "gpio8", "gpio9", "gpio54";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	gamepad_vdd_default: gamepad-vdd-default-state {
+		pins = "gpio56";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	qup_uart10_default: qup-uart10-default-state {
+		pins = "gpio10", "gpio11";
+		function = "qup2_se2";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
 
 	sdc2_default_state: sdc2-default-state {
 		clk-pins {
