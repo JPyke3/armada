@@ -80,8 +80,8 @@ diff --git a/drivers/gpu/drm/panel/panel-visionox-vtdr6130-cog.c b/drivers/gpu/d
 +	}
 +
 +	ret = ops->transfer(dsi->host, &msg);
-+	if (ret < 0 || ret != len) {
-+		ctx->accum_err = ret < 0 ? ret : -EIO;
++	if (ret < 0) {
++		ctx->accum_err = ret;
 +		dev_err(&dsi->dev, "Command %#x failed: %d\n",
 +			data[0], ctx->accum_err);
 +	}
