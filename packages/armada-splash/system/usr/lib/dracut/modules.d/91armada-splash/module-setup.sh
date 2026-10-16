@@ -15,6 +15,10 @@ depends() {
 }
 
 install() {
+    if [[ -e "${dracutsysrootdir:-}/etc/armada/splash-disabled" ]]; then
+        inst_simple /etc/armada/splash-disabled
+    fi
+
     inst_multiple \
         /usr/libexec/armada/armada-splash \
         /usr/libexec/armada/armada-splash-launcher \

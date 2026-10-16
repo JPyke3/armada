@@ -2,6 +2,7 @@
 Description=Armada splash (initramfs)
 DefaultDependencies=no
 ConditionPathExists=/usr/libexec/armada/armada-splash
+ConditionPathExists=!/etc/armada/splash-disabled
 # Ordered into the running boot chain: a bare WantedBy=initrd.target start
 # job is cancelled by switch-root before it ever runs.
 After=dracut-pre-mount.service

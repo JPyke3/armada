@@ -4,6 +4,11 @@
 
 source /usr/lib/armada/storage-lib
 
+# Temporary Duo bring-up test: bypass Turnip tiled rendering.
+if [[ "${ARMADA_DEVICE_ID:-}" == retroid-pocket-duo ]]; then
+    export TU_DEBUG="${TU_DEBUG:+${TU_DEBUG},}sysmem"
+fi
+
 function short_session_recover {
     mkdir -p ~/.local/share/Steam
     # remove some caches and stateful things known to cause Steam to fail to start if corrupt
