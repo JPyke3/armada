@@ -1,0 +1,17 @@
+From: Armada <armada@armada.dev>
+Subject: [PATCH] drm/msm/adreno: keep the Duo GPU runtime active for diagnosis
+
+--- a/drivers/gpu/drm/msm/adreno/adreno_device.c
++++ b/drivers/gpu/drm/msm/adreno/adreno_device.c
+@@ -118,6 +118,11 @@
+ 	if (ret) {
+ 		DRM_DEV_ERROR(dev->dev, "gpu hw init failed: %d\n", ret);
+ 		goto err_put_rpm;
++	}
++
++	if (of_machine_is_compatible("retroidpocket,duo")) {
++		pm_runtime_forbid(&pdev->dev);
++		dev_info(&pdev->dev, "Duo diagnostic: GPU runtime autosuspend disabled\n");
+ 	}
+ 
+ 	pm_runtime_put_autosuspend(&pdev->dev);
