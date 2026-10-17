@@ -652,8 +652,8 @@
 };
 
 &usb {
-	/delete-property/ usb-role-switch;
-	dr_mode = "peripheral";
+	dr_mode = "otg";
+	usb-role-switch;
 	maximum-speed = "high-speed";
 	phys = <&usb_hsphy>;
 	phy-names = "usb2-phy";
