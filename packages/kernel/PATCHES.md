@@ -892,6 +892,3 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada implementation from the unit's Android panel properties and GPIO capture.
   upstream: No.
   notes: Reuses the Nova IL97680A driver for the Duo bottom panel at 60 Hz, with command-mode packets and ordered three-supply power sequencing.
-- `patches/1114-drm-msm-adreno-keep-duo-gpu-runtime-active.patch`
-  source: armada
-  upstream: local

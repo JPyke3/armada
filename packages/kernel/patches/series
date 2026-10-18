@@ -254,5 +254,4 @@ v2_20260420_neil_armstrong_arm64_qcom_sm8650_misc_enhancements.patch
 # ============== SM7750 (Retroid Pocket Duo) ==============
 1111-drm-panel-vtdr6130-add-pocket-duo.patch
 1113-drm-panel-il97680a-add-pocket-duo.patch
-1114-drm-msm-adreno-keep-duo-gpu-runtime-active.patch
 1302-input-rsinput-support-retroid-pocket-duo.patch
