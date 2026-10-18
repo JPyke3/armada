@@ -900,3 +900,6 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada; existing Linux Milos/SC7280 WPSS support and Qualcomm Kera downstream sources, checked against the Duo Android FDT.
   upstream: No.
   notes: Reuses the PAS driver with auto_boot=false. Adds the WPSS firmware processor support; WLAN driver integration remains outstanding.
+- `patches/1115-wifi-ath12k-add-ipci-power-resources.patch`
+  source: Armada; Linux regulator bulk helper and the Duo Android FDT, cross-checked with Qualcomm ICNSS2 power.c at OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8750 commit d50b305f7da9e14715a25120a4ac7b1a4b8b97c3.
+  upstream: No.
