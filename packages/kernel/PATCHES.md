@@ -892,3 +892,7 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada implementation from the unit's Android panel properties and GPIO capture.
   upstream: No.
   notes: Reuses the Nova IL97680A driver for the Duo bottom panel at 60 Hz, with command-mode packets and ordered three-supply power sequencing.
+- `patches/1114-remoteproc-qcom-add-eliza-wpss.patch`
+  source: Armada; existing Linux Milos/SC7280 WPSS support and Qualcomm Kera downstream sources, checked against the Duo Android FDT.
+  upstream: No.
+  notes: Reuses the PAS driver with auto_boot=false. Adds the WPSS firmware processor support; WLAN driver integration remains outstanding.

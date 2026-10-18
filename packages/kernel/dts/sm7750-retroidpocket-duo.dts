@@ -493,6 +493,11 @@
 	status = "disabled";
 };
 
+&remoteproc_wpss {
+	firmware-name = "qcom/sm7750/retroidpocket/duo/wpss.mdt";
+	status = "okay";
+};
+
 &sdhc_2 {
 	vmmc-supply = <&vreg_l13b>;
 	vqmmc-supply = <&vreg_l23b>;
