@@ -228,6 +228,10 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: armada
   upstream: not submitted
   notes: serdev delivers arbitrary byte batches and the old parser dropped any batch that was not exactly one frame, visible as resume-correlated checksum mismatches on the rsinput gamepad devices.
+- `patches/1303-input-rsinput-coalesce-stale-status-frames.patch`
+  source: armada
+  upstream: local
+  notes: CMD_STATUS carries absolute state, not a delta. When the RX backlog holds several queued status frames (serdev callback scheduling delay under load), replaying all of them reported stale button/axis state before the current one, felt as input lag on the Retroid Pocket Duo gamepad bounded by how many frames rx_buf can hold. Only the newest status frame in a batch is now reported; CMD_COMMOD responses are unaffected. Logs how many stale frames were dropped per batch so backlog depth can be confirmed from the journal alone when the device isn't reachable over SSH.
 - `patches/0504-Enable-64-bit-processes-to-use-compat-input-syscalls.patch`
   source: https://github.com/ROCKNIX/distribution/blob/bcf3b5bc574990b96543484575b06f912153a715/projects/ROCKNIX/devices/SM8250/patches/linux/0504-Enable-64-bit-processes-to-use-compat-input-syscalls.patch
   upstream: unknown
