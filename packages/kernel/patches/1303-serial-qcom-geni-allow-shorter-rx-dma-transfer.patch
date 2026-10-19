@@ -18,7 +18,7 @@ allocated at DMA_RX_BUF_SIZE, so only the programmed transfer length
 changes. Ports without the property behave exactly as before.
 
 diff --git a/drivers/tty/serial/qcom_geni_serial.c b/drivers/tty/serial/qcom_geni_serial.c
-index 510071f..ba381b8 100644
+index 510071f..6c7ee23 100644
 --- a/drivers/tty/serial/qcom_geni_serial.c
 +++ b/drivers/tty/serial/qcom_geni_serial.c
 @@ -100,6 +100,7 @@
@@ -96,8 +96,8 @@ index 510071f..ba381b8 100644
 +				 port->rx_dma_len, DMA_RX_BUF_SIZE);
 +			port->rx_dma_len = DMA_RX_BUF_SIZE;
 +		} else {
-+			dev_info(&pdev->dev, "RX DMA transfer length %u bytes\n",
-+				 port->rx_dma_len);
++			dev_dbg(&pdev->dev, "RX DMA transfer length %u bytes\n",
++				port->rx_dma_len);
 +		}
 +	}
 +
