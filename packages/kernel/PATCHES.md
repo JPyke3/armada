@@ -903,3 +903,12 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1115-wifi-ath12k-add-ipci-power-resources.patch`
   source: Armada; Linux regulator bulk helper and the Duo Android FDT, cross-checked with Qualcomm ICNSS2 power.c at OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8750 commit d50b305f7da9e14715a25120a4ac7b1a4b8b97c3.
   upstream: No.
+- `patches/1116-wifi-ath12k-share-initial-wlfw-transactions.patch`
+  source: Armada.
+  upstream: No.
+- `patches/1117-wifi-ath12k-add-wcn7750-host-capabilities.patch`
+  source: Armada; Duo Android FDT and Qualcomm cnss_utils protocol definitions at OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8750 commit d50b305f7da9e14715a25120a4ac7b1a4b8b97c3.
+  upstream: No.
+- `patches/1118-TEST-wifi-ath12k-wcn7750-capability-handshake.patch`
+  source: Armada.
+  upstream: No; TEST ONLY.

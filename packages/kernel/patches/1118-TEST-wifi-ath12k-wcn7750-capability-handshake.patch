@@ -1,0 +1,336 @@
+From: Armada <armada@armada.dev>
+Subject: [PATCH TEST ONLY] wifi: ath12k: exercise WCN7750 capability handshake
+
+Temporary bring-up harness. Drop this patch and its series entry after
+validation; patches 1116/1117 and the board DTS do not depend on it.
+Default module loading remains power-only.
+
+With firmware_test=1, use remoteproc to start WPSS, discover WLFW instance
+3 and reuse ath12k's shared transactions in ICNSS2 order: indication
+registration, host capabilities, then target capabilities. Log firmware
+identification and requested voltage, without applying that voltage or
+proceeding to BDF, PHY microcode, DMA or radio setup.
+
+Require WPSS offline with recovery disabled. Run transactions in probe
+context, not the QMI receive worker; release QMI before stopping WPSS.
+Stop on the first failure without retrying. If shutdown fails, keep the
+device bound and supply votes held for explicit recovery/removal instead
+of automatically dropping power under firmware.
+
+Send the five GPIO slots described by the Duo FDT; omit the newer RESET_B
+slot rather than sending an unverified pin. Optional MLO, AUX-UC, DDR
+address ranges, trace/memory requests and cold-temperature enable delay
+are not advertised. Select the named sw_ctrl pinctrl state only for this
+test; GPIO identifiers are passed to firmware, not driven by Linux.
+No AOP/PDC/CPR policy changes are made.
+
+Reference: OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8750,
+  d50b305f7da9e14715a25120a4ac7b1a4b8b97c3,
+  vendor/qcom/opensource/wlan/platform/icnss2/{main,qmi,power}.c.
+
+diff --git a/drivers/net/wireless/ath/ath12k/Kconfig b/drivers/net/wireless/ath/ath12k/Kconfig
+--- a/drivers/net/wireless/ath/ath12k/Kconfig
++++ b/drivers/net/wireless/ath/ath12k/Kconfig
+@@ -24,11 +24,12 @@
+ 
+ config ATH12K_IPCI
+ 	tristate "Qualcomm ath12k IPCI power support (EXPERIMENTAL)"
+-	depends on ATH12K && OF && REGULATOR
++	depends on ATH12K && OF && REGULATOR && REMOTEPROC
+ 	help
+ 	  Enable the initial power-resource support for integrated WCN7750
+ 	  WLAN devices. This currently acquires the WLAN regulator votes only;
+-	  firmware initialization and the wireless data path are not implemented.
++	  an opt-in firmware_test performs the initial WLFW handshake only.
++	  The wireless data path is not implemented.
+ 
+ 	  If you choose to build a module, it'll be called ath12k_ipci.
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/ipci.c b/drivers/net/wireless/ath/ath12k/ipci.c
+--- a/drivers/net/wireless/ath/ath12k/ipci.c
++++ b/drivers/net/wireless/ath/ath12k/ipci.c
+@@ -1,9 +1,15 @@
+ // SPDX-License-Identifier: BSD-3-Clause-Clear
+ 
++#include <linux/completion.h>
+ #include <linux/module.h>
++#include <linux/net.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
++#include <linux/pinctrl/consumer.h>
++#include <linux/remoteproc.h>
+ #include <linux/regulator/consumer.h>
++
++#include "qmi.h"
+ 
+ static const char * const ath12k_ipci_supplies[] = {
+ 	"vdd-cx-mx",
+@@ -11,6 +17,254 @@
+ 	"vdd-1.3-rfa",
+ 	"vdd-1.8-io",
+ };
++
++#define ATH12K_IPCI_WLFW_INSTANCE 3
++#define ATH12K_IPCI_FW_GPIO_COUNT 5
++
++static bool firmware_test;
++module_param(firmware_test, bool, 0444);
++MODULE_PARM_DESC(firmware_test, "Run one WPSS capability handshake (requires recovery disabled)");
++
++struct ath12k_ipci {
++	struct device *dev;
++	struct rproc *rproc;
++	struct qmi_handle qmi;
++	struct completion service_ready;
++	int service_error;
++	bool disconnected;
++	bool booted;
++};
++
++static int ath12k_ipci_new_server(struct qmi_handle *qmi,
++				  struct qmi_service *service)
++{
++	struct ath12k_ipci *ipci = container_of(qmi, struct ath12k_ipci, qmi);
++	struct sockaddr_qrtr address = {
++		.sq_family = AF_QIPCRTR,
++		.sq_node = service->node,
++		.sq_port = service->port,
++	};
++
++	if (completion_done(&ipci->service_ready))
++		return -EALREADY;
++
++	ipci->service_error = kernel_connect(qmi->sock,
++					     (struct sockaddr_unsized *)&address,
++					     sizeof(address), 0);
++	if (!ipci->service_error)
++		dev_info(ipci->dev, "WLFW service %u instance %u at %u:%u\n",
++			 service->service, service->instance, service->node, service->port);
++	complete(&ipci->service_ready);
++
++	return ipci->service_error;
++}
++
++static void ath12k_ipci_del_server(struct qmi_handle *qmi,
++				   struct qmi_service *service)
++{
++	struct ath12k_ipci *ipci = container_of(qmi, struct ath12k_ipci, qmi);
++
++	WRITE_ONCE(ipci->disconnected, true);
++}
++
++static const struct qmi_ops ath12k_ipci_qmi_ops = {
++	.new_server = ath12k_ipci_new_server,
++	.del_server = ath12k_ipci_del_server,
++};
++
++static int ath12k_ipci_request(struct ath12k_ipci *ipci, unsigned int id,
++			       const void *req, void *resp)
++{
++	struct qmi_response_type_v01 *result = resp;
++	int ret;
++
++	if (READ_ONCE(ipci->disconnected))
++		return -ENOTCONN;
++
++	ret = ath12k_qmi_wlfw_request(&ipci->qmi, id, req, resp);
++	if (ret < 0) {
++		dev_err(ipci->dev, "QMI %#x transaction failed: %d\n", id, ret);
++	} else if (READ_ONCE(ipci->disconnected)) {
++		ret = -ENOTCONN;
++	} else if (result->result != QMI_RESULT_SUCCESS_V01) {
++		dev_err(ipci->dev, "QMI %#x rejected: result %u error %u\n",
++			id, result->result, result->error);
++		ret = -EREMOTEIO;
++	} else {
++		dev_info(ipci->dev, "QMI %#x complete\n", id);
++	}
++
++	return ret;
++}
++
++static int ath12k_ipci_handshake(struct ath12k_ipci *ipci,
++				 struct qmi_wlanfw_host_cap_req_msg_v01 *host)
++{
++	struct qmi_wlanfw_ind_register_req_msg_v01 ind = {
++		.client_id_valid = 1,
++		.client_id = QMI_WLANFW_CLIENT_ID,
++		.fw_ready_enable_valid = 1,
++		.fw_ready_enable = 1,
++		.pin_connect_result_enable_valid = 1,
++		.pin_connect_result_enable = 1,
++		.fw_init_done_enable_valid = 1,
++		.fw_init_done_enable = 1,
++		.cal_done_enable_valid = 1,
++		.cal_done_enable = 1,
++	};
++	struct qmi_wlanfw_ind_register_resp_msg_v01 ind_resp = {};
++	struct qmi_wlanfw_host_cap_resp_msg_v01 host_resp = {};
++	struct qmi_wlanfw_cap_req_msg_v01 cap = {};
++	struct qmi_wlanfw_cap_resp_msg_v01 cap_resp = {};
++	int ret;
++
++	ret = ath12k_ipci_request(ipci, QMI_WLANFW_IND_REGISTER_REQ_V01,
++				  &ind, &ind_resp);
++	if (ret)
++		return ret;
++	if (ind_resp.fw_status_valid && (ind_resp.fw_status & BIT_ULL(0)))
++		return -EALREADY;
++
++	ret = ath12k_ipci_request(ipci, QMI_WLANFW_HOST_CAP_REQ_V01, host, &host_resp);
++	if (ret)
++		return ret;
++
++	ret = ath12k_ipci_request(ipci, QMI_WLANFW_CAP_REQ_V01, &cap, &cap_resp);
++	if (ret)
++		return ret;
++
++	if (!cap_resp.chip_info_valid || !cap_resp.fw_version_info_valid)
++		return -ENODATA;
++
++	dev_info(ipci->dev, "chip %#x family %#x firmware %#x timestamp %s\n",
++		 cap_resp.chip_info.chip_id, cap_resp.chip_info.chip_family,
++		 cap_resp.fw_version_info.fw_version,
++		 cap_resp.fw_version_info.fw_build_timestamp);
++	if (cap_resp.board_info_valid)
++		dev_info(ipci->dev, "board %#x\n", cap_resp.board_info.board_id);
++	if (cap_resp.soc_info_valid)
++		dev_info(ipci->dev, "SoC %#x\n", cap_resp.soc_info.soc_id);
++	if (cap_resp.fw_build_id_valid)
++		dev_info(ipci->dev, "firmware build %s\n", cap_resp.fw_build_id);
++	if (cap_resp.voltage_mv_valid)
++		dev_info(ipci->dev, "firmware requests CX/MX %u mV (not applied)\n",
++			 cap_resp.voltage_mv);
++
++	return 0;
++}
++
++static void ath12k_ipci_put_rproc(void *data)
++{
++	struct ath12k_ipci *ipci = data;
++	int ret;
++
++	if (ipci->booted) {
++		ret = rproc_shutdown(ipci->rproc);
++		if (ret)
++			dev_err(ipci->dev, "WPSS shutdown on removal failed: %d\n", ret);
++	}
++	rproc_put(ipci->rproc);
++}
++
++static int ath12k_ipci_test_firmware(struct device *dev)
++{
++	struct qmi_wlanfw_host_cap_req_msg_v01 host = {
++		.num_clients_valid = 1,
++		.num_clients = 1,
++		.bdf_support_valid = 1,
++		.bdf_support = 1,
++		.cal_done_valid = 1,
++		.host_build_type_valid = 1,
++		.host_build_type = QMI_WLANFW_HOST_BUILD_TYPE_SECONDARY_V01,
++		.ddr_type_valid = 1,
++		.gpio_info_valid = 1,
++		.gpio_info_len = ATH12K_IPCI_FW_GPIO_COUNT,
++	};
++	struct ath12k_ipci *ipci;
++	struct pinctrl *pinctrl;
++	u32 phandle;
++	int ret, stop_ret;
++
++	ret = of_property_read_u32(dev->of_node, "qcom,rproc", &phandle);
++	if (ret)
++		return ret;
++	ret = of_property_read_u32(dev->of_node, "qcom,ddr-type", &host.ddr_type);
++	if (ret)
++		return ret;
++	ret = of_property_read_u32_array(dev->of_node, "qcom,firmware-gpio-map",
++					 host.gpio_info, ATH12K_IPCI_FW_GPIO_COUNT);
++	if (ret)
++		return ret;
++
++	ipci = devm_kzalloc(dev, sizeof(*ipci), GFP_KERNEL);
++	if (!ipci)
++		return -ENOMEM;
++	ipci->dev = dev;
++	ipci->rproc = rproc_get_by_phandle(phandle);
++	if (!ipci->rproc)
++		return -EPROBE_DEFER;
++	mutex_lock(&ipci->rproc->lock);
++	if (ipci->rproc->state != RPROC_OFFLINE || atomic_read(&ipci->rproc->power))
++		ret = -EBUSY;
++	else if (!ipci->rproc->recovery_disabled)
++		ret = -EPERM;
++	mutex_unlock(&ipci->rproc->lock);
++	if (ret) {
++		dev_err(dev, "firmware_test requires offline WPSS with recovery disabled\n");
++		goto put_rproc;
++	}
++
++	pinctrl = devm_pinctrl_get_select(dev, "sw_ctrl");
++	if (IS_ERR(pinctrl)) {
++		ret = PTR_ERR(pinctrl);
++		goto put_rproc;
++	}
++	ret = devm_add_action_or_reset(dev, ath12k_ipci_put_rproc, ipci);
++	if (ret)
++		return ret;
++
++	init_completion(&ipci->service_ready);
++	ret = qmi_handle_init(&ipci->qmi, ATH12K_QMI_RESP_LEN_MAX,
++			      &ath12k_ipci_qmi_ops, NULL);
++	if (ret)
++		return ret;
++	ret = qmi_add_lookup(&ipci->qmi, QMI_SERVICE_ID_WLFW,
++			     ATH12K_QMI_WLFW_SERVICE_VERS_V01, ATH12K_IPCI_WLFW_INSTANCE);
++	if (ret)
++		goto release_qmi;
++
++	ret = rproc_boot(ipci->rproc);
++	if (ret)
++		goto release_qmi;
++	ipci->booted = true;
++	if (!wait_for_completion_timeout(&ipci->service_ready,
++					 msecs_to_jiffies(ATH12K_QMI_WLANFW_TIMEOUT_MS)))
++		ret = -ETIMEDOUT;
++	else if (ipci->service_error)
++		ret = ipci->service_error;
++	else
++		ret = ath12k_ipci_handshake(ipci, &host);
++
++release_qmi:
++	qmi_handle_release(&ipci->qmi);
++	if (ipci->booted) {
++		stop_ret = rproc_shutdown(ipci->rproc);
++		if (stop_ret) {
++			/* Keep supply votes until explicit removal if WPSS did not stop. */
++			dev_err(dev, "WPSS shutdown failed: %d; retaining power votes (handshake %d)\n",
++				stop_ret, ret);
++			return 0;
++		}
++		ipci->booted = false;
++		dev_info(dev, "WPSS stopped after firmware test (%d)\n", ret);
++	}
++
++	return ret;
++
++put_rproc:
++	rproc_put(ipci->rproc);
++	return ret;
++}
+ 
+ static int ath12k_ipci_probe(struct platform_device *pdev)
+ {
+@@ -35,7 +289,12 @@
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "failed to enable WLAN supplies\n");
+ 
+-	dev_info(dev, "WLAN supply votes enabled; firmware initialization not implemented\n");
++	dev_info(dev, "WLAN supply votes enabled\n");
++	if (firmware_test) {
++		ret = ath12k_ipci_test_firmware(dev);
++		if (ret)
++			return dev_err_probe(dev, ret, "firmware capability test failed\n");
++	}
+ 
+ 	return 0;
+ }
