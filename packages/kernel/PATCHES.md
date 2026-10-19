@@ -228,10 +228,14 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: armada
   upstream: not submitted
   notes: serdev delivers arbitrary byte batches and the old parser dropped any batch that was not exactly one frame, visible as resume-correlated checksum mismatches on the rsinput gamepad devices.
-- `patches/1303-input-rsinput-coalesce-stale-status-frames.patch`
+- `patches/1303-input-rsinput-log-uart-delivery-stats.patch`
   source: armada
   upstream: local
-  notes: CMD_STATUS carries absolute state, not a delta. When the RX backlog holds several queued status frames (serdev callback scheduling delay under load), replaying all of them reported stale button/axis state before the current one, felt as input lag on the Retroid Pocket Duo gamepad bounded by how many frames rx_buf can hold. Only the newest status frame in a batch is now reported; CMD_COMMOD responses are unaffected. Logs how many stale frames were dropped per batch so backlog depth can be confirmed from the journal alone when the device isn't reachable over SSH.
+  notes: Reports every frame again and logs RX delivery stats (callbacks, frames, max frames per callback, max gap between callbacks) every rsinput.rx_stats_interval seconds (default 30, 0 disables) so UART latency can be confirmed from the journal when the Retroid Pocket Duo isn't reachable over USB/SSH.
+- `patches/1304-serial-qcom-geni-allow-shorter-rx-dma-transfer.patch`
+  source: armada
+  upstream: local
+  notes: Non-console GENI UARTs receive via SE DMA in fixed 2048-byte transfers that complete only when full or after a 16-character idle gap. The Duo gamepad MCU streams without such gaps, so input reached rsinput in ~245 ms bursts. Adds an optional per-port qcom,rx-dma-len DT property (4..2048, multiple of 4) to shorten the transfer; ports without it are unchanged. Needs a dt-binding update before upstreaming (dtbs_check flags the property).
 - `patches/0504-Enable-64-bit-processes-to-use-compat-input-syscalls.patch`
   source: https://github.com/ROCKNIX/distribution/blob/bcf3b5bc574990b96543484575b06f912153a715/projects/ROCKNIX/devices/SM8250/patches/linux/0504-Enable-64-bit-processes-to-use-compat-input-syscalls.patch
   upstream: unknown

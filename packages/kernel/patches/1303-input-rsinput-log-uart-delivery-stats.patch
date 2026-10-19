@@ -1,0 +1,142 @@
+From: Armada <armada@armada.dev>
+Subject: [PATCH] input: rsinput: log UART delivery statistics
+
+Replaces 1303-input-rsinput-coalesce-stale-status-frames.patch.
+
+That patch reported only the newest CMD_STATUS frame from each RX
+batch. On the Duo, every batch was a full 1024-byte buffer (44 frames)
+because the GENI UART delivered 2048-byte DMA bursts (see
+1304-serial-qcom-geni-allow-shorter-rx-dma-transfer.patch), so a button
+press and release that fell inside one batch were never reported. The
+lag came from the UART burst cadence, not from callback scheduling, so
+coalescing could not remove it.
+
+Report every frame again. handle_cmd_status() only emits keys that
+changed and the input core drops unchanged axis values and empty
+SYN_REPORTs, so replaying a short batch costs little.
+
+Because the Duo cannot be reached interactively, log RX delivery
+statistics every rx_stats_interval seconds (default 30, 0 disables;
+writable at runtime under /sys/module/rsinput/parameters). The
+largest gap between callbacks is a lower bound on worst-case UART
+latency: it was about 245 ms with 2048-byte DMA bursts and should drop
+to a few milliseconds with the shorter transfer.
+
+diff --git a/drivers/input/joystick/rsinput.c b/drivers/input/joystick/rsinput.c
+index b1a56fe..0d4cd67 100644
+--- a/drivers/input/joystick/rsinput.c
++++ b/drivers/input/joystick/rsinput.c
+@@ -11,6 +11,7 @@
+ #include <linux/init.h>
+ #include <linux/input.h>
+ #include <linux/kernel.h>
++#include <linux/ktime.h>
+ #include <linux/module.h>
+ #include <linux/minmax.h>
+ #include <linux/of.h>
+@@ -26,6 +27,16 @@ static bool rumble_enable = true;
+ 
+ module_param(rumble_enable, bool, 0660);
+ 
++/*
++ * Log UART delivery statistics every rx_stats_interval seconds (0 = off).
++ * The interesting figure is the largest gap between RX callbacks: frames
++ * cannot reach evdev faster than the UART hands them over, so that gap is
++ * a lower bound on worst-case input latency.
++ */
++static unsigned int rx_stats_interval = 30;
++module_param(rx_stats_interval, uint, 0644);
++MODULE_PARM_DESC(rx_stats_interval, "Seconds between RX delivery stats log lines, 0 to disable");
++
+ /* MCU release reference; independent of the calibrated evdev maximum. */
+ #define RSINPUT_TRIGGER_RELEASE 0x610
+ 
+@@ -146,6 +157,13 @@ struct rsinput_driver {
+     bool invert_ry;
+     uint8_t rx_buf[1024];
+     size_t rx_len;
++    ktime_t rx_stats_start;
++    ktime_t rx_last;
++    s64 rx_max_gap_us;
++    unsigned int rx_callbacks;
++    unsigned int rx_frames;
++    unsigned int rx_max_frames;
++    size_t rx_max_bytes;
+     uint8_t sequence_number;
+     struct work_struct rumble_work;
+     int rumble_effect_id;
+@@ -385,6 +403,44 @@ static void rsinput_process_data(struct rsinput_driver *drv, const uint8_t *data
+     }
+ }
+ 
++static void rsinput_rx_stats(struct rsinput_driver *drv, size_t bytes,
++                             unsigned int frames)
++{
++    ktime_t now = ktime_get();
++    s64 gap_us;
++
++    if (!rx_stats_interval)
++        return;
++
++    if (!drv->rx_callbacks) {
++        drv->rx_stats_start = now;
++    } else {
++        gap_us = ktime_us_delta(now, drv->rx_last);
++        drv->rx_max_gap_us = max(drv->rx_max_gap_us, gap_us);
++    }
++    drv->rx_last = now;
++    drv->rx_callbacks++;
++    drv->rx_frames += frames;
++    drv->rx_max_frames = max(drv->rx_max_frames, frames);
++    drv->rx_max_bytes = max(drv->rx_max_bytes, bytes);
++
++    if (ktime_ms_delta(now, drv->rx_stats_start) <
++        (s64)rx_stats_interval * MSEC_PER_SEC)
++        return;
++
++    dev_info(&drv->serdev->dev,
++             "rx: %u callbacks, %u frames in %lld ms; max %zu bytes / %u frames per callback, max gap %lld us\n",
++             drv->rx_callbacks, drv->rx_frames,
++             ktime_ms_delta(now, drv->rx_stats_start),
++             drv->rx_max_bytes, drv->rx_max_frames, drv->rx_max_gap_us);
++
++    drv->rx_callbacks = 0;
++    drv->rx_frames = 0;
++    drv->rx_max_frames = 0;
++    drv->rx_max_bytes = 0;
++    drv->rx_max_gap_us = 0;
++}
++
+ /*
+  * serdev makes no framing guarantee: a callback may contain part of a
+  * frame or multiple frames.
+@@ -392,6 +448,7 @@ static void rsinput_process_data(struct rsinput_driver *drv, const uint8_t *data
+ static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t count) {
+     struct rsinput_driver *drv = serdev_device_get_drvdata(serdev);
+     size_t consumed = 0, avail;
++    unsigned int frames = 0;
+ 
+     if (!drv || !data || count == 0) {
+         dev_warn_ratelimited(&serdev->dev, "Invalid RX data\n");
+@@ -430,9 +487,10 @@ static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t co
+         if (avail < frame_length)
+             break;
+ 
+-        if (compute_checksum(frame, frame_length) == frame[frame_length - 1])
++        if (compute_checksum(frame, frame_length) == frame[frame_length - 1]) {
+             rsinput_process_data(drv, frame, frame_length);
+-        else
++            frames++;
++        } else
+             dev_warn_ratelimited(&serdev->dev, "Checksum mismatch\n");
+ 
+         consumed += frame_length;
+@@ -444,6 +502,8 @@ static size_t rsinput_rx(struct serdev_device *serdev, const u8 *data, size_t co
+         drv->rx_len = avail;
+     }
+ 
++    rsinput_rx_stats(drv, count, frames);
++
+     return count;
+ }
+ 

@@ -487,6 +487,12 @@
 		interconnect-names = "qup-core", "qup-config";
 		pinctrl-0 = <&qup_uart10_default>;
 		pinctrl-names = "default";
+		/*
+		 * The gamepad MCU streams without idle gaps long enough to
+		 * trip the RX stale timeout; complete RX DMA every 32 bytes
+		 * (~4 ms at its data rate) instead of every 2048 (~245 ms).
+		 */
+		qcom,rx-dma-len = <32>;
 		status = "okay";
 
 		gamepad {
