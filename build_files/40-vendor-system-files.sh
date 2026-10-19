@@ -90,6 +90,8 @@ systemctl enable armada-guestos.service
 systemctl enable usr-share-guestos-android.mount
 systemctl enable armada-device-quirks.service
 systemctl enable armada-duo-wpss-test.service
+# TEMP(duo): USB debug gadget (NCM + ACM) for bring-up; remove before release.
+systemctl enable armada-duo-usb-debug.service
 systemctl enable armada-rgb.service
 systemctl enable armada-rgb-brightness-watch.service
 systemctl enable armada-rgb-brightness-watch.path

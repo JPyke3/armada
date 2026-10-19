@@ -1,0 +1,135 @@
+#!/usr/bin/bash
+# TEMP(duo): USB debug gadget for Retroid Pocket Duo bring-up.
+# Exposes a composite gadget (CDC NCM network + CDC ACM serial console) and
+# writes a USB diagnostics report so failures are visible without USB access.
+set -uo pipefail
+
+gadget=/sys/kernel/config/usb_gadget/armada-debug
+config="$gadget/configs/c.1"
+dev_ip=10.55.0.1/24
+report=/var/home/armada/duo-usb-debug.txt
+dwc3_debugfs=/sys/kernel/debug/usb/a600000.usb
+
+is_duo() {
+    grep -zqx 'retroidpocket,duo' /sys/firmware/devicetree/base/compatible
+}
+
+section() { printf '\n===== %s\n' "$*"; }
+
+diagnostics() {
+    section "kernel log (usb)"
+    dmesg | grep -iE 'dwc3|a600000|88e3000|eusb2|repeater|udc|gadget|usb_role|ncm|acm' || true
+    section "udc"
+    for udc in /sys/class/udc/*; do
+        [[ -e "$udc" ]] || continue
+        printf '%s state=%s speed=%s\n' "${udc##*/}" \
+            "$(cat "$udc/state" 2>/dev/null)" "$(cat "$udc/current_speed" 2>/dev/null)"
+    done
+    section "usb_role"
+    for role in /sys/class/usb_role/*/role; do
+        [[ -e "$role" ]] && printf '%s = %s\n' "$role" "$(cat "$role")"
+    done
+    section "dwc3 debugfs"
+    for f in mode link_state lsp_dump; do
+        [[ -r "$dwc3_debugfs/$f" ]] && printf '%s: %s\n' "$f" "$(cat "$dwc3_debugfs/$f" 2>&1)"
+    done
+    section "clocks"
+    grep -iE 'usb|utmi|pipe|clkref' /sys/kernel/debug/clk/clk_summary 2>/dev/null || true
+    section "regulators"
+    grep -E 'vreg_l(4b|7b|17b|7k)' /sys/kernel/debug/regulator/regulator_summary 2>/dev/null || true
+    section "network"
+    ip -br addr 2>/dev/null || true
+}
+
+teardown() {
+    systemctl stop serial-getty@ttyGS0.service 2>/dev/null || :
+    [[ -d "$gadget" ]] || return 0
+    [[ -n "$(cat "$gadget/UDC" 2>/dev/null)" ]] && printf '\n' > "$gadget/UDC" 2>/dev/null
+    for link in "$config"/*.usb0 "$config"/*.GS0; do
+        [[ -L "$link" ]] && rm -f "$link"
+    done
+    for dir in "$config/strings/0x409" "$config" "$gadget/functions/"* \
+               "$gadget/strings/0x409" "$gadget"; do
+        [[ -d "$dir" ]] && rmdir "$dir" 2>/dev/null
+    done
+    return 0
+}
+
+start() {
+    exec > >(tee "$report") 2>&1
+    printf 'Duo USB debug gadget; boot ID: %s; kernel %s\n' \
+        "$(cat /proc/sys/kernel/random/boot_id)" "$(uname -r)"
+    trap 'diagnostics; sync' EXIT
+
+    mountpoint -q /sys/kernel/debug || mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+    modprobe libcomposite 2>/dev/null
+    modprobe usb_f_ncm 2>/dev/null
+    modprobe usb_f_acm 2>/dev/null
+    mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
+
+    udc=""
+    for ((i = 0; i < 20; i++)); do
+        for d in /sys/class/udc/*; do [[ -e "$d" ]] && udc="${d##*/}" && break; done
+        [[ -n "$udc" ]] && break
+        sleep 1
+    done
+    if [[ -z "$udc" ]]; then
+        printf 'FAIL: no UDC after 20s (dwc3 did not probe in device mode)\n'
+        exit 1
+    fi
+    printf 'UDC: %s\n' "$udc"
+
+    teardown
+    mkdir -p "$gadget" || exit 1
+    cd "$gadget" || exit 1
+    echo 0x1d6b > idVendor          # Linux Foundation
+    echo 0x0104 > idProduct         # Multifunction Composite Gadget
+    echo 0x0100 > bcdDevice
+    echo 0x0200 > bcdUSB
+    echo 0xEF > bDeviceClass        # Misc / IAD, needed by Windows for composite CDC
+    echo 0x02 > bDeviceSubClass
+    echo 0x01 > bDeviceProtocol
+    mkdir -p strings/0x409
+    serial="$(systemd-id128 machine-id -a 7f3d0c2a9b5e4f6a8c1d2e3f4a5b6c7d 2>/dev/null || echo duo)"
+    echo "${serial:0:16}" > strings/0x409/serialnumber
+    echo Armada > strings/0x409/manufacturer
+    echo 'Armada Duo USB debug' > strings/0x409/product
+
+    mkdir -p "$config/strings/0x409"
+    echo 'NCM + ACM' > "$config/strings/0x409/configuration"
+    echo 250 > "$config/MaxPower"
+
+    # Fixed MACs keep the host-side interface name/profile stable across boots.
+    mkdir -p functions/ncm.usb0 functions/acm.GS0 || { printf 'FAIL: gadget functions unavailable\n'; exit 1; }
+    echo 02:a7:4d:00:00:01 > functions/ncm.usb0/dev_addr
+    echo 02:a7:4d:00:00:02 > functions/ncm.usb0/host_addr
+    ln -s functions/ncm.usb0 "$config/"
+    ln -s functions/acm.GS0 "$config/"
+
+    for role in /sys/class/usb_role/*/role; do
+        [[ -w "$role" ]] && echo device > "$role"
+    done
+    if ! echo "$udc" > UDC; then
+        printf 'FAIL: could not bind gadget to %s\n' "$udc"
+        exit 1
+    fi
+    printf 'Gadget bound to %s\n' "$udc"
+
+    ifname="$(cat functions/ncm.usb0/ifname 2>/dev/null || echo usb0)"
+    nmcli device set "$ifname" managed no 2>/dev/null || :
+    ip addr flush dev "$ifname" 2>/dev/null
+    ip addr add "$dev_ip" dev "$ifname" && ip link set "$ifname" up
+    printf 'Network: %s = %s (host: use 10.55.0.2/24)\n' "$ifname" "$dev_ip"
+
+    systemctl start --no-block serial-getty@ttyGS0.service || :
+    systemctl start --no-block sshd.service || :
+    sleep 3
+    exit 0
+}
+
+case "${1:-}" in
+    start) is_duo || exit 0; start ;;
+    stop) teardown ;;
+    diag) diagnostics ;;
+    *) printf 'usage: %s {start|stop|diag}\n' "$0" >&2; exit 2 ;;
+esac
