@@ -263,7 +263,7 @@ CONFIG_BPF_SYSCALL=y
 CONFIG_CGROUP_BPF=y
 
 # ============== SM7750 / CQ7790S (Retroid Pocket Duo) ==============
-CONFIG_ATH12K_IPCI=m                        # WCN7750 power-resource bring-up only
+CONFIG_ATH12K_AHB=y                         # WCN7750 WPSS / hybrid-bus Wi-Fi
 CONFIG_CLK_ELIZA_GCC=y
 CONFIG_CLK_ELIZA_GPUCC=y
 CONFIG_CLK_ELIZA_TCSRCC=y
