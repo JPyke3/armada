@@ -345,10 +345,6 @@ CONFIG_STEAM_FF=y
 # ============== USB networking / phone tethering ==============
 CONFIG_USB_NET_RNDIS_HOST=m              # Android USB tethering
 
-# ============== USB gadget (configfs) ==============
-CONFIG_USB_CONFIGFS_NCM=y                # Duo USB debug gadget (network)
-CONFIG_USB_CONFIGFS_ACM=y                # Duo USB debug gadget (serial console)
-
 # ============== Bluetooth peripherals ==============
 CONFIG_BT_LE=y
 CONFIG_BT_RFCOMM=m
