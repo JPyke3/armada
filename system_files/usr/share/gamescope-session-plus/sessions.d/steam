@@ -4,12 +4,6 @@
 
 source /usr/lib/armada/storage-lib
 
-# Duo Gamescope startup workaround: bypass Turnip's GMEM rendering path.
-# Keep until startup without sysmem is validated on the Adreno 722.
-if [[ "${ARMADA_DEVICE_ID:-}" == retroid-pocket-duo ]]; then
-    export TU_DEBUG="${TU_DEBUG:+${TU_DEBUG},}sysmem"
-fi
-
 function short_session_recover {
     mkdir -p ~/.local/share/Steam
     # remove some caches and stateful things known to cause Steam to fail to start if corrupt
