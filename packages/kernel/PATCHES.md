@@ -1003,3 +1003,6 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1164-arm64-dts-qcom-eliza-add-i2c6.patch`
   source: https://github.com/RetroidPocket/linux/commit/aaa9c19f21f7c651f4a5dd270170f5862b6cabc0
   upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
+- `patches/1165-drm-msm-dpu-program-merge-3d-for-command-mode.patch`
+  source: https://github.com/RetroidPocket/linux/commit/b547718c91dbaf8fe27745afced8de00d1f7415b
+  upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
