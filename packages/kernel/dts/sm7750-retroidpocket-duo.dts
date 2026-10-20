@@ -8,6 +8,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/gpio-keys.h>
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
@@ -72,6 +73,22 @@
 			clocks = <&rpmhcc RPMH_LN_BB_CLK3>;
 			clock-mult = <1>;
 			clock-div = <2>;
+		};
+	};
+
+	gpio-keys-lid {
+		compatible = "gpio-keys";
+		pinctrl-0 = <&hall_lid_default>;
+		pinctrl-names = "default";
+
+		hall-lid-sensor {
+			label = "Hall Lid Sensor";
+			gpios = <&tlmm 31 GPIO_ACTIVE_LOW>;
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+			linux,can-disable;
+			wakeup-event-action = <EV_ACT_DEASSERTED>;
+			wakeup-source;
 		};
 	};
 
@@ -709,6 +726,14 @@
 
 &tlmm {
 	gpio-reserved-ranges = <20 4>, <111 2>, <118 1>;
+
+	hall_lid_default: hall-lid-default-state {
+		pins = "gpio31";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+		input-enable;
+	};
 
 	fan_pwr_default: fan-pwr-default-state {
 		pins = "gpio55";
