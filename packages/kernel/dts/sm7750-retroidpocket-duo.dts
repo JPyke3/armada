@@ -15,6 +15,7 @@
 #include "pm7550ba-eliza.dtsi"
 
 #define spmi_bus spmi_bus0
+#include "pm7550.dtsi"
 #include "pmk8550.dtsi"
 #undef spmi_bus
 
@@ -80,6 +81,22 @@
 			     "qcom,pmic-glink";
 	};
 
+	pwm_fan: pwm-fan {
+		compatible = "pwm-fan";
+		fan-supply = <&vdd_fan_5v0>;
+		pwms = <&pm7550_pwm 3 40000>;
+
+		pinctrl-0 = <&fan_pwm_default>, <&fan_tach_default>;
+		pinctrl-names = "default";
+
+		pulses-per-revolution = <2>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
+
+		cooling-levels = <0 30 45 60 70 90 120 150>;
+		#cooling-cells = <2>;
+	};
+
 	vph_pwr: regulator-vph-pwr {
 		compatible = "regulator-fixed";
 		regulator-name = "vph_pwr";
@@ -87,6 +104,21 @@
 		regulator-max-microvolt = <3700000>;
 		regulator-always-on;
 		regulator-boot-on;
+	};
+
+	vdd_fan_5v0: regulator-fan {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_fan_5v0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&tlmm 55 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		pinctrl-0 = <&fan_pwr_default>;
+		pinctrl-names = "default";
+
+		regulator-state-mem {
+			regulator-off-in-suspend;
+		};
 	};
 
 	vdd_gamepad: regulator-gamepad {
@@ -498,6 +530,25 @@
 	status = "okay";
 };
 
+&pm7550 {
+	pm7550_pwm: pwm {
+		compatible = "qcom,pm8350c-pwm";
+		#pwm-cells = <2>;
+	};
+};
+
+&pm7550_gpios {
+	fan_pwm_default: fan-pwm-default-state {
+		pins = "gpio8";
+		function = "func1";
+		input-disable;
+		output-enable;
+		output-low;
+		bias-disable;
+		power-source = <1>;
+	};
+};
+
 &pm7550ba_eusb2_repeater {
 	vdd18-supply = <&vreg_l7b>;
 	vdd3-supply = <&vreg_l17b>;
@@ -658,6 +709,22 @@
 
 &tlmm {
 	gpio-reserved-ranges = <20 4>, <111 2>, <118 1>;
+
+	fan_pwr_default: fan-pwr-default-state {
+		pins = "gpio55";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
+		output-low;
+	};
+
+	fan_tach_default: fan-tach-default-state {
+		pins = "gpio3";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
 
 	wlan_en_default: wlan-en-default-state {
 		pins = "gpio35";
