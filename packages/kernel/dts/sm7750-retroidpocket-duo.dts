@@ -245,6 +245,7 @@
 		vdd-s1-supply = <&vph_pwr>;
 		vdd-s2-supply = <&vph_pwr>;
 		vdd-s3-supply = <&vph_pwr>;
+		vdd-s4-supply = <&vph_pwr>;
 		vdd-bob-supply = <&vph_pwr>;
 
 		vreg_s1b: smps1 {
@@ -265,6 +266,13 @@
 			regulator-name = "vreg_s3b";
 			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <1040000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		vreg_s4b: smps4 {
+			regulator-name = "vreg_s4b";
+			regulator-min-microvolt = <2156000>;
+			regulator-max-microvolt = <2600000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
@@ -400,7 +408,15 @@
 		compatible = "qcom,pmr735d-rpmh-regulators";
 		qcom,pmic-id = "k";
 
+		vdd-l6-supply = <&vreg_s1b>;
 		vdd-l7-supply = <&vreg_s3b>;
+
+		vreg_l6k: ldo6 {
+			regulator-name = "vreg_l6k";
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <2000000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
 
 		vreg_l7k: ldo7 {
 			regulator-name = "vreg_l7k";
@@ -724,8 +740,51 @@
 	};
 };
 
+&spmi_bus0 {
+	pm8550vs_g: pmic@6 {
+		compatible = "qcom,pm8550vs", "qcom,spmi-pmic";
+		reg = <6 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pm8550vs_g_gpios: gpio@8800 {
+			compatible = "qcom,pm8550vs-gpio", "qcom,spmi-gpio";
+			reg = <0x8800>;
+			gpio-controller;
+			gpio-ranges = <&pm8550vs_g_gpios 0 0 6>;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+};
+
 &tlmm {
 	gpio-reserved-ranges = <20 4>, <111 2>, <118 1>;
+
+	qup_uart5_sleep_cts: qup-uart5-sleep-cts-state {
+		pins = "gpio132";
+		function = "gpio";
+		bias-bus-hold;
+	};
+
+	qup_uart5_sleep_rts: qup-uart5-sleep-rts-state {
+		pins = "gpio133";
+		function = "gpio";
+		bias-pull-down;
+	};
+
+	qup_uart5_sleep_rx: qup-uart5-sleep-rx-state {
+		pins = "gpio135";
+		function = "gpio";
+		bias-pull-up;
+	};
+
+	qup_uart5_sleep_tx: qup-uart5-sleep-tx-state {
+		pins = "gpio134";
+		function = "gpio";
+		bias-pull-up;
+	};
 
 	hall_lid_default: hall-lid-default-state {
 		pins = "gpio31";
@@ -886,6 +945,39 @@
 		function = "gpio";
 		drive-strength = <2>;
 		bias-pull-down;
+	};
+};
+
+&uart5 {
+	/delete-property/ interrupts;
+	interrupts-extended = <&intc GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>,
+			      <&tlmm 135 IRQ_TYPE_EDGE_FALLING>;
+
+	pinctrl-0 = <&qup_uart5_default>, <&qup_uart5_cts_rts>;
+	pinctrl-1 = <&qup_uart5_sleep_cts>, <&qup_uart5_sleep_rts>,
+		    <&qup_uart5_sleep_tx>, <&qup_uart5_sleep_rx>;
+	pinctrl-names = "default", "sleep";
+
+	status = "okay";
+
+	bluetooth: bluetooth {
+		compatible = "qcom,wcn7750-bt";
+
+		clocks = <&rpmhcc RPMH_RF_CLK1>;
+
+		enable-gpios = <&pm8550vs_g_gpios 4 GPIO_ACTIVE_HIGH>;
+		swctrl-gpios = <&tlmm 81 GPIO_ACTIVE_HIGH>;
+
+		vddio-supply = <&vreg_l7b>;
+		vddaon-supply = <&vreg_l11b>;
+		vdddig-supply = <&vreg_s3b>;
+		vddrfacmn-supply = <&vreg_s3b>;
+		vddrfa0p8-supply = <&vreg_l6k>;
+		vddrfa1p2-supply = <&vreg_s2b>;
+		vddrfa1p9-supply = <&vreg_s1b>;
+		vddrfa2p2-supply = <&vreg_s4b>;
+
+		max-speed = <3200000>;
 	};
 };
 

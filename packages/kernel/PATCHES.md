@@ -1006,3 +1006,7 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1165-drm-msm-dpu-program-merge-3d-for-command-mode.patch`
   source: https://github.com/RetroidPocket/linux/commit/b547718c91dbaf8fe27745afced8de00d1f7415b
   upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
+- `patches/1166-Bluetooth-qca-add-WCN7750-support.patch`
+  source: https://github.com/RetroidPocket/linux/commit/762bc03f0c4863bad8b935e844cc570517314784
+  upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
+  notes: Context refreshed for Armada's WCN7860 support, which is retained. Uses ORN firmware from the existing atheros-firmware package.
