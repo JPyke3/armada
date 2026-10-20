@@ -458,6 +458,7 @@
 &mdss_dsi1_out {
 	remote-endpoint = <&duo_bottom_panel_in>;
 	data-lanes = <0 1 2 3>;
+	qcom,te-source = "mdp_vsync_s";
 };
 
 &mdss_dsi1_phy {

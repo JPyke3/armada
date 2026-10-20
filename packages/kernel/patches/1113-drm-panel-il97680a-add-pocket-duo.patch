@@ -1,6 +1,7 @@
 Subject: [PATCH] drm/panel: ilitek-il97680a: add Pocket Duo bottom panel
 
-Reuse the Nova initialization payloads, reset sequence and 60 Hz timing.
+Reuse the Nova initialization payloads, reset sequence and 120/60 Hz
+timings, also used by RetroidPocket for the Duo bottom panel.
 Select command mode, DCS long vendor writes, command-only tear-on and
 post-display-on writes for the Duo. Keep the Nova's video modes, VRR,
 packet types, power handling and calibrated brightness curve unchanged.
@@ -167,8 +168,8 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
 +};
 +
 +static struct panel_desc il97680a_rpduo_desc = {
-+	.modes = &il97680a_rpnova_modes[1],
-+	.num_modes = 1,
++	.modes = il97680a_rpnova_modes,
++	.num_modes = ARRAY_SIZE(il97680a_rpnova_modes),
 +	.bpc = 8,
 +	.lanes = 4,
 +	.format = MIPI_DSI_FMT_RGB888,
