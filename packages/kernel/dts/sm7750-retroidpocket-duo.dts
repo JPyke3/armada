@@ -74,6 +74,12 @@
 		};
 	};
 
+	pmic-glink {
+		compatible = "qcom,eliza-pmic-glink",
+			     "qcom,sm8550-pmic-glink",
+			     "qcom,pmic-glink";
+	};
+
 	vph_pwr: regulator-vph-pwr {
 		compatible = "regulator-fixed";
 		regulator-name = "vph_pwr";
@@ -525,7 +531,7 @@
 &remoteproc_adsp {
 	firmware-name = "qcom/sm7750/retroidpocket/duo/adsp.mbn",
 			"qcom/sm7750/retroidpocket/duo/adsp_dtb.mbn";
-	status = "disabled";
+	status = "okay";
 };
 
 &remoteproc_wpss {

@@ -10,12 +10,14 @@ IMG="/usr/lib/modules/${KVER}/initramfs.img"
 # dracut-install aborts resolving /root without the target.
 mkdir -p /var/roothome
 
-# Built-in MSM does not advertise these A722 files through MODULE_FIRMWARE.
-# Include them explicitly so the Duo GPU can probe before switching root.
-duo_gpu_firmware=(
+# These Duo GPU and ADSP files are not advertised through MODULE_FIRMWARE.
+# Include them explicitly for drivers that probe before switching root.
+duo_firmware=(
     /usr/lib/firmware/qcom/gen71700_sqe.fw
     /usr/lib/firmware/qcom/gen71700_gmu.bin
     /usr/lib/firmware/qcom/sm7750/retroidpocket/duo/gen70e00_zap.mbn
+    /usr/lib/firmware/qcom/sm7750/retroidpocket/duo/adsp.mbn
+    /usr/lib/firmware/qcom/sm7750/retroidpocket/duo/adsp_dtb.mbn
 )
 
 dracut \
@@ -26,7 +28,7 @@ dracut \
     --add ostree \
     --add armada-splash \
     --add armada-ostree-fallback \
-    --install "${duo_gpu_firmware[*]}" \
+    --install "${duo_firmware[*]}" \
     "${IMG}" "${KVER}"
 
 # dracut drops modules silently: fail the build rather than ship without.
@@ -42,7 +44,7 @@ required=(
     usr/lib/systemd/system/ostree-prepare-root.service.d/armada-fallback.conf \
     usr/lib/ostree/ostree-prepare-root
 )
-required+=( "${duo_gpu_firmware[@]#/}" )
+required+=( "${duo_firmware[@]#/}" )
 
 if ! lsinitrd "${IMG}" | awk '
     BEGIN {

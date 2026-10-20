@@ -891,11 +891,9 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1111-drm-panel-vtdr6130-add-pocket-duo.patch`
   source: Armada implementation from the unit's Android panel properties.
   upstream: No.
-  notes: Adds `vtdr6130,rpduo` to the VTDR6130 COG driver. Reuses the existing RP6 120/60 Hz timing table, matching RetroidPocket's Duo mapping in commit `58b57285747b2e76c6291c039b5d2d4f46112c55`. 120 Hz is preferred; 60 Hz now also uses the reference RP6 porch placement. Duo power sequencing, DSC and initialization remain unchanged.
 - `patches/1113-drm-panel-il97680a-add-pocket-duo.patch`
   source: Armada implementation from the unit's Android panel properties and GPIO capture.
   upstream: No.
-  notes: Reuses the Nova IL97680A driver and its 120/60 Hz timing table for the Duo bottom panel, with command-mode packets and ordered three-supply power sequencing. 120 Hz is preferred, as in RetroidPocket commit `32d07e207d8c`. The standalone Duo DTS selects `mdp_vsync_s` for DSI1, matching RetroidPocket DTS commit `2209a42da1a891d0d140293f5831c50e4aa9cc61`; otherwise the driver defaults to the primary panel's TE input. Live Armada logs showed encoder 39 (DSI-2) frame-done timeouts and DSI FIFO underflows before this routing correction. Both refresh modes and the routing correction still require device validation.
 - `patches/1114-remoteproc-qcom-add-eliza-wpss.patch`
   source: Armada; existing Linux Milos/SC7280 WPSS support and Qualcomm Kera downstream sources, checked against the Duo Android FDT.
   upstream: No.
