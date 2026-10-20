@@ -281,5 +281,6 @@ v2_20260420_neil_armstrong_arm64_qcom_sm8650_misc_enhancements.patch
 1161-dt-bindings-net-wireless-describe-WCN7750-resources.patch
 1162-scsi-ufs-ufs-qcom-add-Eliza-match-data.patch
 1163-dt-bindings-ufs-allow-Eliza-legacy-doorbell-mode.patch
+1164-arm64-dts-qcom-eliza-add-i2c6.patch
 1302-input-rsinput-support-retroid-pocket-duo.patch
 1303-serial-qcom-geni-allow-shorter-rx-dma-transfer.patch

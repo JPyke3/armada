@@ -2,9 +2,9 @@ Subject: [PATCH] drm/panel: ilitek-il97680a: add Pocket Duo bottom panel
 
 Reuse the Nova initialization payloads, reset sequence and 120/60 Hz
 timings, also used by RetroidPocket for the Duo bottom panel.
-Select command mode, DCS long vendor writes, command-only tear-on and
-post-display-on writes for the Duo. Keep the Nova's video modes, VRR,
-packet types, power handling and calibrated brightness curve unchanged.
+Use standard DCS helpers and finish the Duo command-mode initialization
+in prepare, including RetroidPocket's post-display-on writes and delay.
+Keep the Nova's video modes, VRR, power handling and brightness curve.
 
 Use the three Android supplies in order with captured voltage/load votes
 and delays. Keep shared L1G under normal regulator reference counting.
@@ -36,117 +36,27 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
 +	const struct regulator_bulk_data *supplies;
 +	unsigned int num_supplies;
 +	const struct il97680a_supply_config *supply_config;
-+	bool vendor_dcs_long;
++	bool needs_post_on;
 +	bool raw_brightness;
  };
  
  static const struct regulator_bulk_data panel_supplies[] = {
-@@ -88,6 +102,47 @@
- 	return 0;
- }
- 
-+static void il97680a_write(struct panel_info *pinfo,
-+			   struct mipi_dsi_multi_context *ctx,
-+			   const u8 *data, size_t len)
-+{
-+	struct mipi_dsi_device *dsi = ctx->dsi;
-+	const struct mipi_dsi_host_ops *ops = dsi->host->ops;
-+	struct mipi_dsi_msg msg = {
-+		.channel = dsi->channel,
-+		.type = MIPI_DSI_DCS_LONG_WRITE,
-+		.flags = MIPI_DSI_MSG_USE_LPM,
-+		.tx_len = len,
-+		.tx_buf = data,
-+	};
-+	ssize_t ret;
-+
-+	if (ctx->accum_err)
-+		return;
-+
-+	if (!pinfo->desc->vendor_dcs_long) {
-+		mipi_dsi_dcs_write_buffer_multi(ctx, data, len);
-+		return;
-+	}
-+
-+	if (!ops || !ops->transfer) {
-+		ctx->accum_err = -EOPNOTSUPP;
-+		return;
-+	}
-+
-+	ret = ops->transfer(dsi->host, &msg);
-+	if (ret < 0) {
-+		ctx->accum_err = ret;
-+		dev_err(&dsi->dev, "Command %#x failed: %d\n",
-+			data[0], ctx->accum_err);
-+	}
-+}
-+
-+#define il97680a_write_seq(pinfo, ctx, seq...) do { \
-+	static const u8 data[] = { seq }; \
-+	il97680a_write(pinfo, ctx, data, ARRAY_SIZE(data)); \
-+} while (0)
-+
- static int il97680a_rpnova_init_sequence(struct panel_info *pinfo)
- {
- 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = pinfo->dsi };
-@@ -97,32 +152,38 @@
- 
- 	pinfo->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
- 
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x08);
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc8, 0x62);
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x21);
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa4, 0x38);
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x23);
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x85, 0x15);
--
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xff, 0x5a, 0xa5, 0x08);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xc8, 0x62);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xff, 0x5a, 0xa5, 0x21);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xa4, 0x38);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xff, 0x5a, 0xa5, 0x23);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0x85, 0x15);
-+
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
- 	if (cur_vrefresh == 120) {
--		mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x60, 0x00);
-+		il97680a_write_seq(pinfo, &dsi_ctx, 0x60, 0x00);
- 	} else {
--		mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x60, 0x01);
--	}
--
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x6d, 0x00);
--
--	mipi_dsi_dcs_set_tear_on_multi(&dsi_ctx, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
--
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DCS_WRITE_CONTROL_DISPLAY,
-+		il97680a_write_seq(pinfo, &dsi_ctx, 0x60, 0x01);
-+	}
-+
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0x6d, 0x00);
-+
-+	if (pinfo->desc->vendor_dcs_long)
-+		mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DCS_SET_TEAR_ON);
-+	else
-+		mipi_dsi_dcs_set_tear_on_multi(&dsi_ctx, MIPI_DSI_DCS_TEAR_MODE_VBLANK);
-+
-+	il97680a_write_seq(pinfo, &dsi_ctx, MIPI_DCS_WRITE_CONTROL_DISPLAY,
- 				     0x20);
--	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
-+	il97680a_write_seq(pinfo, &dsi_ctx, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
- 				     0x0d, 0x75, 0x00, 0x00);
- 
- 	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
- 
- 	mipi_dsi_msleep(&dsi_ctx, 120);
-+
-+	if (pinfo->desc->vendor_dcs_long)
-+		return dsi_ctx.accum_err;
+@@ -126,7 +140,13 @@
  
  	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
  
-@@ -178,7 +239,100 @@
+-	mipi_dsi_msleep(&dsi_ctx, 20);
++	mipi_dsi_msleep(&dsi_ctx, pinfo->desc->needs_post_on ? 50 : 20);
++
++	if (pinfo->desc->needs_post_on) {
++		mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x22);
++		mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xe1, 0x01);
++		mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	}
+ 
+ 	return dsi_ctx.accum_err;
+ }
+@@ -178,7 +198,100 @@
  				  MIPI_DSI_MODE_NO_EOT_PACKET |
  				  MIPI_DSI_MODE_LPM,
  	.init_sequence = il97680a_rpnova_init_sequence,
@@ -179,7 +89,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
 +	.supplies = il97680a_rpduo_supplies,
 +	.num_supplies = ARRAY_SIZE(il97680a_rpduo_supplies),
 +	.supply_config = il97680a_rpduo_supply_config,
-+	.vendor_dcs_long = true,
++	.needs_post_on = true,
 +	.raw_brightness = true,
 +};
 +
@@ -248,7 +158,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  
  static void il97680a_reset(struct panel_info *pinfo)
  {
-@@ -195,7 +349,7 @@
+@@ -195,7 +308,7 @@
  	struct panel_info *pinfo = to_panel_info(panel);
  	int ret;
  
@@ -257,7 +167,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  	if (ret < 0) {
  		dev_err(panel->dev, "failed to enable regulators: %d\n", ret);
  		return ret;
-@@ -205,7 +359,7 @@
+@@ -205,7 +318,7 @@
  
  	ret = pinfo->desc->init_sequence(pinfo);
  	if (ret < 0) {
@@ -266,40 +176,17 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  		dev_err(panel->dev, "failed to initialize panel: %d\n", ret);
  		return ret;
  	}
-@@ -213,12 +367,30 @@
- 	return 0;
- }
- 
--static int il97680a_disable(struct drm_panel *panel)
-+static int il97680a_enable(struct drm_panel *panel)
- {
+@@ -218,7 +331,8 @@
  	struct panel_info *pinfo = to_panel_info(panel);
  	struct mipi_dsi_multi_context dsi_ctx = { .dsi = pinfo->dsi };
  
 -	pinfo->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
-+	if (!pinfo->desc->vendor_dcs_long)
-+		return 0;
-+
-+	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
-+	mipi_dsi_msleep(&dsi_ctx, 50);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xff, 0x5a, 0xa5, 0x22);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xe1, 0x01);
-+	il97680a_write_seq(pinfo, &dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
-+
-+	return dsi_ctx.accum_err;
-+}
-+
-+static int il97680a_disable(struct drm_panel *panel)
-+{
-+	struct panel_info *pinfo = to_panel_info(panel);
-+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = pinfo->dsi };
-+
-+	if (!pinfo->desc->vendor_dcs_long)
++	if (pinfo->dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
 +		pinfo->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
  
  	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
  	mipi_dsi_msleep(&dsi_ctx, 20);
-@@ -233,7 +405,7 @@
+@@ -233,7 +347,7 @@
  	struct panel_info *pinfo = to_panel_info(panel);
  
  	gpiod_set_value_cansleep(pinfo->reset_gpio, 1);
@@ -308,15 +195,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  
  	return 0;
  }
-@@ -308,6 +480,7 @@
- }
- 
- static const struct drm_panel_funcs il97680a_panel_funcs = {
-+	.enable = il97680a_enable,
- 	.disable = il97680a_disable,
- 	.prepare = il97680a_prepare,
- 	.unprepare = il97680a_unprepare,
-@@ -362,11 +535,14 @@
+@@ -362,9 +476,11 @@
  {
  	struct mipi_dsi_device *dsi = bl_get_data(bl);
  	struct panel_info *pinfo = mipi_dsi_get_drvdata(dsi);
@@ -324,17 +203,13 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
 -						 backlight_get_brightness(bl));
 +	u16 brightness = backlight_get_brightness(bl);
  	int ret;
- 
--	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
++
 +	if (!pinfo->desc->raw_brightness)
 +		brightness = drm_panel_bl_levels_map(&pinfo->bl_levels, brightness);
-+
-+	if (!pinfo->desc->vendor_dcs_long)
-+		dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
  
- 	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
- 	if (ret < 0)
-@@ -390,11 +566,13 @@
+ 	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+ 
+@@ -390,11 +506,13 @@
  static struct backlight_device *il97680a_create_backlight(struct mipi_dsi_device *dsi)
  {
  	struct device *dev = &dsi->dev;
@@ -349,7 +224,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  	};
  
  	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
-@@ -413,8 +591,12 @@
+@@ -413,8 +531,12 @@
  	if (IS_ERR(pinfo))
  		return PTR_ERR(pinfo);
  
@@ -364,7 +239,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  	if (ret < 0) {
  		return dev_err_probe(dev, ret, "Failed to get regulators\n");
  	}
-@@ -422,10 +604,6 @@
+@@ -422,10 +544,6 @@
  	pinfo->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
  	if (IS_ERR(pinfo->reset_gpio))
  		return dev_err_probe(dev, PTR_ERR(pinfo->reset_gpio), "failed to get reset gpio\n");
@@ -375,7 +250,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  
  	pinfo->dsi = dsi;
  	mipi_dsi_set_drvdata(dsi, pinfo);
-@@ -438,11 +616,13 @@
+@@ -438,11 +556,13 @@
  
  	pinfo->panel.prepare_prev_first = true;
  
@@ -394,7 +269,7 @@ diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/pan
  
  	pinfo->panel.backlight = il97680a_create_backlight(dsi);
  	if (IS_ERR(pinfo->panel.backlight))
-@@ -467,6 +647,7 @@
+@@ -467,6 +587,7 @@
  
  static const struct of_device_id il97680a_of_match[] = {
  	{ .compatible = "il97680a,rpnova", .data = &il97680a_rpnova_desc },

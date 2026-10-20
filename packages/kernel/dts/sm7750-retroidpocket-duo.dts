@@ -127,7 +127,7 @@
 		regulator-max-microvolt = <1800000>;
 		gpio = <&tlmm 71 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		status = "disabled";
+		status = "okay";
 	};
 
 	avdd_touch_bottom: regulator-bottom-touch-avdd {
@@ -137,7 +137,7 @@
 		regulator-max-microvolt = <3000000>;
 		gpio = <&tlmm 72 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		status = "disabled";
+		status = "okay";
 	};
 
 	vddio_touch_top: regulator-top-touch-vddio {
@@ -370,6 +370,31 @@
 	firmware-name = "qcom/sm7750/retroidpocket/duo/gen70e00_zap.mbn";
 };
 
+&i2c6 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	touchscreen@38 {
+		compatible = "focaltech,ft5452";
+		reg = <0x38>;
+		label = "bottom_touchscreen";
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <123 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&tlmm 124 GPIO_ACTIVE_LOW>;
+
+		vcc-supply = <&avdd_touch_bottom>;
+		iovcc-supply = <&vddio_touch_bottom>;
+
+		pinctrl-0 = <&duo_bottom_touch_default>;
+		pinctrl-1 = <&duo_bottom_touch_sleep>;
+		pinctrl-names = "default", "sleep";
+
+		touchscreen-size-x = <1280>;
+		touchscreen-size-y = <960>;
+	};
+};
+
 &i2c8 {
 	clock-frequency = <400000>;
 	status = "okay";
@@ -451,7 +476,8 @@
 		rotation = <0>;
 
 		pinctrl-0 = <&duo_bottom_panel_reset>, <&duo_bottom_panel_te>;
-		pinctrl-names = "default";
+		pinctrl-1 = <&duo_bottom_panel_reset_sleep>, <&duo_bottom_panel_te>;
+		pinctrl-names = "default", "sleep";
 
 		port {
 			duo_bottom_panel_in: endpoint {
@@ -703,8 +729,15 @@
 	duo_bottom_panel_reset: bottom-panel-reset-state {
 		pins = "gpio73";
 		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
+	};
+
+	duo_bottom_panel_reset_sleep: bottom-panel-reset-sleep-state {
+		pins = "gpio73";
+		function = "gpio";
 		drive-strength = <2>;
-		bias-pull-up;
+		bias-pull-down;
 	};
 
 	duo_bottom_panel_te: bottom-panel-te-state {
@@ -754,6 +787,13 @@
 		function = "gpio";
 		drive-strength = <8>;
 		bias-pull-up;
+	};
+
+	duo_bottom_touch_sleep: bottom-touch-sleep-state {
+		pins = "gpio124", "gpio123";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
 	};
 };
 

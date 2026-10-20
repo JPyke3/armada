@@ -892,8 +892,9 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada implementation from the unit's Android panel properties.
   upstream: No.
 - `patches/1113-drm-panel-il97680a-add-pocket-duo.patch`
-  source: Armada implementation from the unit's Android panel properties and GPIO capture.
+  source: Armada implementation from the unit's Android panel properties and GPIO capture; command sequence from https://github.com/RetroidPocket/linux/commit/32d07e207d8c09b97b9ad5009999c32c7058d4af
   upstream: No.
+  notes: Shares Nova's DCS helpers and timings; Duo command-mode initialization follows RetroidPocket, retaining ordered board supply handling and raw brightness.
 - `patches/1114-remoteproc-qcom-add-eliza-wpss.patch`
   source: Armada; existing Linux Milos/SC7280 WPSS support and Qualcomm Kera downstream sources, checked against the Duo Android FDT.
   upstream: No.
@@ -999,3 +1000,6 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada; RetroidPocket Duo UFS configuration.
   upstream: No.
   notes: Allows the Eliza board to omit MCQ resources while preserving Nord's requirement.
+- `patches/1164-arm64-dts-qcom-eliza-add-i2c6.patch`
+  source: https://github.com/RetroidPocket/linux/commit/aaa9c19f21f7c651f4a5dd270170f5862b6cabc0
+  upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
