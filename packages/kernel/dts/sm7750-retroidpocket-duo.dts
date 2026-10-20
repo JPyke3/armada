@@ -64,6 +64,14 @@
 			clock-mult = <1>;
 			clock-div = <2>;
 		};
+
+		ufs_ref_clk_src: ufs-ref-clk-src {
+			compatible = "fixed-factor-clock";
+			#clock-cells = <0>;
+			clocks = <&rpmhcc RPMH_LN_BB_CLK3>;
+			clock-mult = <1>;
+			clock-div = <2>;
+		};
 	};
 
 	vph_pwr: regulator-vph-pwr {
@@ -751,19 +759,33 @@
 
 &ufs_mem_hc {
 	reset-gpios = <&tlmm 185 GPIO_ACTIVE_LOW>;
+
+	reg = <0x0 0x01d84000 0x0 0x3000>;
+	reg-names = "std";
+
 	vcc-supply = <&vreg_l12b>;
-	vcc-max-microamp = <800000>;
-	vccq2-supply = <&vreg_l1d>;
-	vccq2-max-microamp = <750000>;
-	/* Android votes L3G for vddp-ref-clk; mainline supply handling is unresolved. */
-	status = "disabled";
+	vcc-max-microamp = <1300000>;
+	vccq-supply = <&vreg_l1d>;
+	vccq-max-microamp = <1200000>;
+
+	limit-hs-gear = <3>;
+
+	clocks = <&gcc GCC_UFS_PHY_AXI_CLK>,
+		 <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+		 <&gcc GCC_UFS_PHY_AHB_CLK>,
+		 <&gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
+		 <&ufs_ref_clk_src>,
+		 <&gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
+		 <&gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>,
+		 <&gcc GCC_UFS_PHY_RX_SYMBOL_1_CLK>;
+
+	status = "okay";
 };
 
 &ufs_mem_phy {
 	vdda-phy-supply = <&vreg_l6b>;
 	vdda-pll-supply = <&vreg_l4b>;
-	/* Android votes L2B for vdda-qref; mainline supply handling is unresolved. */
-	status = "disabled";
+	status = "okay";
 };
 
 &usb {

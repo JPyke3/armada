@@ -992,3 +992,12 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada; RetroidPocket WCN7750 driver and board resources.
   upstream: No.
   notes: Documents the hybrid-bus resources in place of the experimental supplies-only binding.
+
+- `patches/1162-scsi-ufs-ufs-qcom-add-Eliza-match-data.patch`
+  source: https://github.com/RetroidPocket/linux/commit/1213eb175774de1f4ba6577a4329bba58729840d
+  upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
+  notes: Reuses SM8550 match data for Eliza's lack of PHY retention and legacy-doorbell capability quirk. Refreshed context for Armada's SM8750 entry; driver change otherwise unchanged.
+- `patches/1163-dt-bindings-ufs-allow-Eliza-legacy-doorbell-mode.patch`
+  source: Armada; RetroidPocket Duo UFS configuration.
+  upstream: No.
+  notes: Allows the Eliza board to omit MCQ resources while preserving Nord's requirement.
