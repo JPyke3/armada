@@ -11,6 +11,7 @@
 #include <dt-bindings/input/gpio-keys.h>
 #include <dt-bindings/input/linux-event-codes.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/leds/common.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include "eliza.dtsi"
 #include "pm7550ba-eliza.dtsi"
@@ -765,7 +766,29 @@
 &pm7550 {
 	pm7550_pwm: pwm {
 		compatible = "qcom,pm8350c-pwm";
+		#address-cells = <1>;
+		#size-cells = <0>;
 		#pwm-cells = <2>;
+
+		led@1 {
+			reg = <1>;
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_CHARGING;
+			linux,default-trigger = "qcom-battmgr-bat-charging";
+		};
+
+		led@2 {
+			reg = <2>;
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_CHARGING;
+			linux,default-trigger = "qcom-battmgr-bat-full";
+		};
+
+		led@3 {
+			reg = <3>;
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_STATUS;
+		};
 	};
 };
 
