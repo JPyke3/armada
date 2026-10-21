@@ -1055,3 +1055,9 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1178-ASoC-qcom-q6prm-add-missing-mclk-ids.patch`
   source: https://github.com/RetroidPocket/linux/commit/a2fdf929fbb491f3bf4d3cadb5a7cc7c90182c0f
   upstream: https://patch.msgid.link/20260731162626.1588561-3-srinivas.kandagatla@oss.qualcomm.com
+- `patches/1179-ASoC-qcom-fix-duo-speaker-slot-width.patch`
+  source: armada; register definitions from https://github.com/awinic-driver/aw883xx/blob/main/aw883xx_pid_2066_reg.h
+  upstream: local
+- `patches/1180-ASoC-qcom-q6apm-allow-s32-playback.patch`
+  source: armada
+  upstream: local
