@@ -77,6 +77,19 @@
 		};
 	};
 
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		key-volume-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&pm7550_gpios 6 GPIO_ACTIVE_LOW>;
+			debounce-interval = <10>;
+			linux,can-disable;
+			wakeup-source;
+		};
+	};
+
 	gpio-keys-lid {
 		compatible = "gpio-keys";
 		pinctrl-0 = <&hall_lid_default>;
@@ -774,14 +787,14 @@
 			reg = <1>;
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_CHARGING;
-			linux,default-trigger = "qcom-battmgr-bat-charging";
+			linux,default-trigger = "battery-charging";
 		};
 
 		led@2 {
 			reg = <2>;
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_CHARGING;
-			linux,default-trigger = "qcom-battmgr-bat-full";
+			linux,default-trigger = "battery-full";
 		};
 
 		led@3 {
