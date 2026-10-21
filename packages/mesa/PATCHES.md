@@ -18,6 +18,9 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
 - `patches/0004-freedreno-add-a722-support.patch`
   source: https://gitlab.freedesktop.org/mesa/mesa/-/commit/803731f7ed4aa8e8265fe0aff08b85efb3f3c7e9
   notes: Adds native and wildcard-fuse IDs for A722 to the shared Freedreno/Turnip table.
+- `patches/0005-freedreno-a722-disable-uav-ubwc.patch`
+  source: armada
+  notes: turns off UBWC on A722 storage images, which renders flashing black blocks
 
 ## Variants
 
