@@ -78,8 +78,8 @@ fi
 # ARMADA_IRQ_CORES means no IRQ restriction.
 case "${ARMADA_SOC_CLASS:-}" in
     SM7750)
-        : "${ARMADA_LITTLE_CORES=0-3}"
-        : "${ARMADA_BIG_CORES=4-7}"
+        : "${ARMADA_LITTLE_CORES=0-2}"
+        : "${ARMADA_BIG_CORES=3-7}"
         : "${ARMADA_PRIME_CORES=7}"
         ;;
     SM8250)
