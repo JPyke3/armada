@@ -284,5 +284,6 @@ v2_20260420_neil_armstrong_arm64_qcom_sm8650_misc_enhancements.patch
 1164-arm64-dts-qcom-eliza-add-i2c6.patch
 1165-drm-msm-dpu-program-merge-3d-for-command-mode.patch
 1166-Bluetooth-qca-add-WCN7750-support.patch
+1167-drm-msm-dpu-enable-eliza-inline-rotation.patch
 1302-input-rsinput-support-retroid-pocket-duo.patch
 1303-serial-qcom-geni-allow-shorter-rx-dma-transfer.patch

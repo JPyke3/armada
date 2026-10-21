@@ -1010,3 +1010,7 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: https://github.com/RetroidPocket/linux/commit/762bc03f0c4863bad8b935e844cc570517314784
   upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
   notes: Context refreshed for Armada's WCN7860 support, which is retained. Uses ORN firmware from the existing atheros-firmware package.
+- `patches/1167-drm-msm-dpu-enable-eliza-inline-rotation.patch`
+  source: armada
+  upstream: local
+  notes: Adds inline rotation for Eliza
