@@ -114,6 +114,101 @@
 		#cooling-cells = <2>;
 	};
 
+	sound {
+		compatible = "qcom,eliza-sndcard", "qcom,sm8450-sndcard";
+		model = "ELIZA-RetroidPocket-I2S";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pri_mi2s_active>, <&quat_mi2s_active>,
+			    <&quat_mi2s_mclk_active>;
+
+		pri-mi2s-rx-dai-link {
+			link-name = "Primary MI2S Playback";
+
+			cpu {
+				sound-dai = <&q6apmbedai PRIMARY_MI2S_RX>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+
+			codec {
+				sound-dai = <&spk_amp_l 0>, <&spk_amp_r 0>;
+			};
+		};
+
+		quat-mi2s-rx-dai-link {
+			link-name = "Quaternary MI2S Playback";
+
+			cpu {
+				sound-dai = <&q6apmbedai QUATERNARY_MI2S_RX>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+
+			codec {
+				sound-dai = <&es8326_codec>;
+			};
+		};
+
+		quat-mi2s-tx-dai-link {
+			link-name = "Quaternary MI2S Capture";
+
+			cpu {
+				sound-dai = <&q6apmbedai QUATERNARY_MI2S_TX>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+
+			codec {
+				sound-dai = <&es8326_codec>;
+			};
+		};
+
+		va-dai-link {
+			link-name = "VA_CODEC_DMA_TX_0 Capture";
+
+			cpu {
+				sound-dai = <&q6apmbedai VA_CODEC_DMA_TX_0>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+
+			codec {
+				sound-dai = <&lpass_vamacro 0>;
+			};
+		};
+	};
+
+	vdd_codec_1v8: vdd-codec-1v8-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_codec_1v8";
+
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&tlmm 163 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	vdd_codec_3v3: vdd-codec-3v3-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_codec_3v3";
+
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+
+		gpio = <&tlmm 164 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
 	vph_pwr: regulator-vph-pwr {
 		compatible = "regulator-fixed";
 		regulator-name = "vph_pwr";
@@ -435,6 +530,60 @@
 	firmware-name = "qcom/sm7750/retroidpocket/duo/gen70e00_zap.mbn";
 };
 
+&i2c0 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	es8326_codec: audio-codec@18 {
+		compatible = "everest,es8326";
+		reg = <0x18>;
+
+		clocks = <&q6prmcc LPASS_CLK_ID_MCLK_3 LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		clock-names = "mclk";
+		assigned-clocks = <&q6prmcc LPASS_CLK_ID_MCLK_3 LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		assigned-clock-rates = <12288000>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <98 IRQ_TYPE_EDGE_RISING>;
+
+		vdd-supply = <&vdd_codec_3v3>;
+		vddio-supply = <&vdd_codec_1v8>;
+
+		everest,jack-detect-inverted;
+		everest,interrupt-src = /bits/ 8 <0x08>;
+		everest,interrupt-clk = /bits/ 8 <0x00>;
+
+		#sound-dai-cells = <0>;
+	};
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	spk_amp_l: audio-codec@34 {
+		compatible = "awinic,aw88166";
+		reg = <0x34>;
+		#sound-dai-cells = <1>;
+		reset-gpios = <&tlmm 127 GPIO_ACTIVE_LOW>;
+		awinic,audio-channel = <1>;
+		awinic,sync-flag;
+		firmware-name = "qcom/sm7750/retroidpocket/duo/aw883xx_acf.bin";
+		sound-name-prefix = "SPK_L";
+	};
+
+	spk_amp_r: audio-codec@35 {
+		compatible = "awinic,aw88166";
+		reg = <0x35>;
+		#sound-dai-cells = <1>;
+		reset-gpios = <&tlmm 126 GPIO_ACTIVE_LOW>;
+		awinic,audio-channel = <0>;
+		awinic,sync-flag;
+		firmware-name = "qcom/sm7750/retroidpocket/duo/aw883xx_acf.bin";
+		sound-name-prefix = "SPK_R";
+	};
+};
+
 &i2c6 {
 	clock-frequency = <400000>;
 	status = "okay";
@@ -484,6 +633,56 @@
 		touchscreen-size-y = <1920>;
 		touchscreen-inverted-y;
 	};
+};
+
+&lpass_tlmm {
+	quat_mi2s_active: quat-mi2s-active-state {
+		sck-pins {
+			pins = "gpio0";
+			function = "i2s0_clk";
+			drive-strength = <8>;
+			bias-disable;
+			output-high;
+		};
+
+		ws-pins {
+			pins = "gpio1";
+			function = "i2s0_ws";
+			drive-strength = <8>;
+			bias-disable;
+			output-high;
+		};
+
+		data-pins {
+			pins = "gpio2";
+			function = "i2s0_data";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		data1-pins {
+			pins = "gpio3";
+			function = "i2s0_data";
+			drive-strength = <8>;
+			bias-disable;
+		};
+	};
+
+	quat_mi2s_mclk_active: quat-mi2s-mclk-active-state {
+		pins = "gpio5";
+		function = "ext_mclk1_c";
+		drive-strength = <8>;
+		bias-disable;
+		output-high;
+	};
+};
+
+&lpass_vamacro {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dmic01_default>;
+
+	vdd-micb-supply = <&vreg_l7b>;
+	qcom,dmic-sample-rate = <4800000>;
 };
 
 &mdss {
@@ -638,6 +837,32 @@
 	};
 };
 
+&q6apmbedai {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	dai@10 {
+		reg = <PRIMARY_MI2S_RX>;
+		clocks = <&q6prmcc LPASS_CLK_ID_PRI_MI2S_IBIT LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_CLK_ID_MCLK_1 LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		clock-names = "bclk", "mclk";
+	};
+
+	dai@16 {
+		reg = <QUATERNARY_MI2S_RX>;
+		clocks = <&q6prmcc LPASS_CLK_ID_QUAD_MI2S_IBIT LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_CLK_ID_MCLK_3 LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		clock-names = "bclk", "mclk";
+	};
+
+	dai@17 {
+		reg = <QUATERNARY_MI2S_TX>;
+		clocks = <&q6prmcc LPASS_CLK_ID_QUAD_MI2S_IBIT LPASS_CLK_ATTRIBUTE_COUPLE_NO>,
+			 <&q6prmcc LPASS_CLK_ID_MCLK_3 LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		clock-names = "bclk", "mclk";
+	};
+};
+
 &remoteproc_adsp {
 	firmware-name = "qcom/sm7750/retroidpocket/duo/adsp.mbn",
 			"qcom/sm7750/retroidpocket/duo/adsp_dtb.mbn";
@@ -761,6 +986,31 @@
 
 &tlmm {
 	gpio-reserved-ranges = <20 4>, <111 2>, <118 1>;
+
+	pri_mi2s_active: pri-mi2s-active-state {
+		sck-pins {
+			pins = "gpio60";
+			function = "i2s0_sck";
+			drive-strength = <8>;
+			bias-disable;
+			output-high;
+		};
+
+		ws-pins {
+			pins = "gpio61";
+			function = "i2s0_ws";
+			drive-strength = <8>;
+			bias-disable;
+			output-high;
+		};
+
+		data0-pins {
+			pins = "gpio64";
+			function = "i2s0_data0";
+			drive-strength = <8>;
+			bias-disable;
+		};
+	};
 
 	qup_uart5_sleep_cts: qup-uart5-sleep-cts-state {
 		pins = "gpio132";
