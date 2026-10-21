@@ -1052,3 +1052,6 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1177-dt-bindings-describe-eliza-audio-resources.patch`
   source: armada
   upstream: local
+- `patches/1178-ASoC-qcom-q6prm-add-missing-mclk-ids.patch`
+  source: https://github.com/RetroidPocket/linux/commit/a2fdf929fbb491f3bf4d3cadb5a7cc7c90182c0f
+  upstream: https://patch.msgid.link/20260731162626.1588561-3-srinivas.kandagatla@oss.qualcomm.com

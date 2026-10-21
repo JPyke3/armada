@@ -295,5 +295,6 @@ v2_20260420_neil_armstrong_arm64_qcom_sm8650_misc_enhancements.patch
 1175-ASoC-qcom-configure-eliza-mi2s-clocks.patch
 1176-ASoC-es8326-enable-codec-supplies.patch
 1177-dt-bindings-describe-eliza-audio-resources.patch
+1178-ASoC-qcom-q6prm-add-missing-mclk-ids.patch
 1302-input-rsinput-support-retroid-pocket-duo.patch
 1303-serial-qcom-geni-allow-shorter-rx-dma-transfer.patch
