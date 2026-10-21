@@ -1014,3 +1014,11 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: armada
   upstream: local
   notes: Adds inline rotation for Eliza
+- `patches/1168-drm-msm-dpu-enable-eliza-lutdma.patch`
+  source: armada
+  upstream: local
+  notes: Enables LUTDMA for Eliza, matching downstream kera (https://git.codelinaro.org/clo/la/platform/vendor/opensource/display-devicetree/-/blob/1c5de2a5c1743f0693d3b0ca5ff7ca158627fc6b/display/kera-sde-common.dtsi). Needs `0068`.
+- `patches/1169-arm64-dts-qcom-eliza-dpu-lutdma.patch`
+  source: armada
+  upstream: local
+  notes: Maps the Eliza DPU LUTDMA registers. Needs `0069`.
