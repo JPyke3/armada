@@ -690,6 +690,9 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/0622-drm-msm-a6xx-mask-the-hfi-interrupt-before-booting-the-gmu.patch`
   source: armada
   upstream: local
+- `patches/0623-drm-msm-a6xx-increase-gmu-fw-init-timeout.patch`
+  source: https://github.com/RetroidPocket/linux/commit/ba970587a0e1203b6a0934b5b9174886b4c4d24c
+  upstream: https://patchwork.freedesktop.org/patch/753014/
 - `dts/sm7750-retroidpocket-duo.dts`
   source: armada
   upstream: local
