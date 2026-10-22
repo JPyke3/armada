@@ -357,6 +357,7 @@
 	vddio_touch_top: regulator-top-touch-vddio {
 		compatible = "regulator-fixed";
 		regulator-name = "top-touch-vddio";
+		vin-supply = <&vreg_l8b>;
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		gpio = <&tlmm 74 GPIO_ACTIVE_HIGH>;
