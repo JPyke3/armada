@@ -60,3 +60,5 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
   source: https://github.com/ValveSoftware/gamescope/pull/2417
 - `patches/0030-steamcompmgr-optional-blank-overlay-placeholder.patch`
   source: armada
+- `patches/0031-vulkan-allow-linear-composition-output.patch`
+  source: armada
