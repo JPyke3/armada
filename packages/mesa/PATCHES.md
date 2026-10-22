@@ -20,7 +20,9 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
   notes: Adds native and wildcard-fuse IDs for A722 to the shared Freedreno/Turnip table.
 - `patches/0005-freedreno-a722-disable-uav-ubwc.patch`
   source: armada
-  notes: turns off UBWC on A722 storage images, which renders flashing black blocks
+  notes: turns off UBWC on A722 storage images without an explicit DRM modifier,
+  which render flashing black blocks; shared images (gamescope's composite) keep UBWC
+  so the DPU can still rotate them
 
 ## Variants
 
