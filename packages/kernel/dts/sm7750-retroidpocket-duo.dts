@@ -139,6 +139,31 @@
 						remote-endpoint = <&usb_dp_qmpphy_out>;
 					};
 				};
+
+				port@2 {
+					reg = <2>;
+
+					pmic_glink_sbu: endpoint {
+						remote-endpoint = <&usb_sbu_mux_endpoint>;
+					};
+				};
+			};
+		};
+	};
+
+	usb-sbu-mux {
+		/* The exact switch part is unconfirmed; use the generic GPIO driver. */
+		compatible = "onnn,fsusb42", "gpio-sbu-mux";
+		enable-gpios = <&tlmm 75 GPIO_ACTIVE_LOW>;
+		select-gpios = <&tlmm 76 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_sbu_mux_default>;
+		mode-switch;
+		orientation-switch;
+
+		port {
+			usb_sbu_mux_endpoint: endpoint {
+				remote-endpoint = <&pmic_glink_sbu>;
 			};
 		};
 	};
@@ -734,6 +759,14 @@
 	status = "okay";
 };
 
+&mdss_dp0 {
+	status = "okay";
+};
+
+&mdss_dp0_out {
+	link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000 8100000000>;
+};
+
 &mdss_dsi0 {
 	vdda-supply = <&vreg_l4b>;
 	status = "okay";
@@ -1262,6 +1295,13 @@
 		function = "gpio";
 		drive-strength = <2>;
 		bias-pull-down;
+	};
+
+	usb_sbu_mux_default: usb-sbu-mux-default-state {
+		pins = "gpio75", "gpio76";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
 	};
 };
 
