@@ -1064,6 +1064,3 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1180-ASoC-qcom-q6apm-allow-s32-playback.patch`
   source: armada
   upstream: local
-- `patches/1181-drm-msm-a6xx-preemption-user-context-record.patch`
-  source: armada
-  upstream: local
