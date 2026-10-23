@@ -23,6 +23,12 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
   notes: turns off UBWC on A722 storage images without an explicit DRM modifier,
   which render flashing black blocks; shared images (gamescope's composite) keep UBWC
   so the DPU can still rotate them
+- `patches/0006-freedreno-a722-blob-regs-and-layout.patch`
+  source: https://github.com/Vauzi-17/710/blob/5db89bde562d/add_710_720_722.py
+  notes: converted the script's A722 entry to a patch; the registers are inline in the
+  A722 entry so it applies to both BASE.env and the devel pin, `highest_bank_bit` is
+  left out (Turnip reads it from the kernel), and `magic_regs` stays A730's (the same
+  all-zero values)
 
 ## Variants
 
