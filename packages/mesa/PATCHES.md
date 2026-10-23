@@ -29,6 +29,11 @@ to a commit, or `armada` if it's original; a URL source with no `notes` is verba
   A722 entry so it applies to both BASE.env and the devel pin, `highest_bank_bit` is
   left out (Turnip reads it from the kernel), and `magic_regs` stays A730's (the same
   all-zero values)
+- `patches/0007-turnip-a722-skip-bv-bin-preamble.patch`
+  source: armada
+  notes: A722 has no BV pipe, so the BV bin preamble replaced the BR one and bins
+  resumed after a preemption without their CCU and RB_BUFFER_CNTL state; fixes
+  flickering tiles and CCU faults at iova 0 with the perf overlay and QAM open
 
 ## Variants
 
