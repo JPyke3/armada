@@ -1,26 +1,49 @@
 From: virtudude <virtudude@protonmail.com>
-Subject: [PATCH] drm/panel: il97680a: expose a luminance-linear backlight scale
+Subject: [PATCH] drm/panel: il97680a: expose a luminance-linear Nova backlight scale
 
-The DDIC drives the panel at luminance ~ (DBV/3445)^2.4, measured on the
-Retroid Pocket Nova module. Raw DBV in sysfs compresses the useful
-brightness range into the top of the scale and collapses the low end
-under nits-based brightness control. Translate the now luminance-linear
-sysfs scale to DBV through the brightness levels helper and declare
-BACKLIGHT_SCALE_LINEAR. Report the cached brightness instead of reading
-the register back so the reported value stays in scale units.
+Retain the measured Nova luminance curve on top of the upstream candidate.
+Translate sysfs brightness to DBV through the brightness levels helper
+and declare BACKLIGHT_SCALE_LINEAR for Nova. Keep Duo on raw DBV and
+leave brightness reporting to the backlight core's cached property.
+
+The lookup table, interpolation parameters and maximum brightness are
+unchanged from Armada's previous Nova implementation.
 
 ---
---- a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c	2026-08-29 18:22:22.108668614 -0400
-+++ b/drivers/gpu/drm/panel/panel-ilitek-il97680a.c	2026-08-29 18:46:25.920796598 -0400
-@@ -30,6 +30,7 @@
+diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/panel/panel-ilitek-il97680a.c
+--- a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c
++++ b/drivers/gpu/drm/panel/panel-ilitek-il97680a.c
+@@ -27,11 +27,13 @@
+ 	struct drm_connector *connector;
+ 	struct mipi_dsi_device *dsi;
+ 	const struct panel_desc *desc;
++	const struct il97680a_variant *variant;
+ 	enum drm_panel_orientation orientation;
  
  	struct gpio_desc *reset_gpio;
  	struct regulator_bulk_data *supplies;
+ 	unsigned int num_supplies;
 +	struct drm_panel_bl_levels bl_levels;
  };
  
  struct panel_desc {
-@@ -285,10 +286,55 @@
+@@ -52,6 +54,7 @@
+ 	const struct panel_desc *desc;
+ 	const struct regulator_bulk_data *supplies;
+ 	unsigned int num_supplies;
++	bool linear_brightness;
+ };
+ 
+ static const struct regulator_bulk_data il97680a_rpnova_supplies[] = {
+@@ -180,6 +183,7 @@
+ 	.desc = &il97680a_retroid_desc,
+ 	.supplies = il97680a_rpnova_supplies,
+ 	.num_supplies = ARRAY_SIZE(il97680a_rpnova_supplies),
++	.linear_brightness = true,
+ };
+ 
+ static const struct il97680a_variant il97680a_rpduo_variant = {
+@@ -285,12 +289,59 @@
  	.get_orientation = il97680a_get_orientation,
  };
  
@@ -70,52 +93,50 @@ the register back so the reported value stays in scale units.
  static int il97680a_bl_update_status(struct backlight_device *bl)
  {
  	struct mipi_dsi_device *dsi = bl_get_data(bl);
--	u16 brightness = backlight_get_brightness(bl);
-+	struct panel_info *pinfo = mipi_dsi_get_drvdata(dsi);
-+	u16 brightness = drm_panel_bl_levels_map(&pinfo->bl_levels,
-+						 backlight_get_brightness(bl));
++	struct il97680a *pinfo = mipi_dsi_get_drvdata(dsi);
+ 	u16 brightness = backlight_get_brightness(bl);
  	int ret;
  
++	if (pinfo->variant->linear_brightness)
++		brightness = drm_panel_bl_levels_map(&pinfo->bl_levels, brightness);
++
  	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
-@@ -304,19 +350,7 @@
  
- static int il97680a_bl_get_brightness(struct backlight_device *bl)
+ 	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
+@@ -308,10 +359,13 @@
+ il97680a_create_backlight(struct mipi_dsi_device *dsi)
  {
--	struct mipi_dsi_device *dsi = bl_get_data(bl);
--	u16 brightness;
--	int ret;
--
--	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
--
--	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
--	if (ret < 0)
--		return ret;
--
--	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
--
--	return brightness;
-+	return backlight_get_brightness(bl);
- }
- 
- static const struct backlight_ops il97680a_bl_ops = {
-@@ -331,6 +365,7 @@
+ 	struct device *dev = &dsi->dev;
++	struct il97680a *pinfo = mipi_dsi_get_drvdata(dsi);
+ 	const struct backlight_properties props = {
  		.type = BACKLIGHT_RAW,
  		.brightness = 3445,
  		.max_brightness = 3445,
-+		.scale = BACKLIGHT_SCALE_LINEAR,
++		.scale = pinfo->variant->linear_brightness ? BACKLIGHT_SCALE_LINEAR :
++			 BACKLIGHT_SCALE_UNKNOWN,
  	};
  
  	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
-@@ -374,6 +409,12 @@
+@@ -335,6 +389,7 @@
+ 	if (!variant)
+ 		return -ENODEV;
  
++	pinfo->variant = variant;
+ 	pinfo->desc = variant->desc;
+ 	pinfo->num_supplies = variant->num_supplies;
+ 
+@@ -359,6 +414,14 @@
+ 	dsi->format = pinfo->desc->format;
+ 	dsi->mode_flags = pinfo->desc->mode_flags;
  	pinfo->panel.prepare_prev_first = true;
- 
-+	ret = drm_panel_bl_levels_init(&pinfo->bl_levels, dev,
-+				       il97680a_bl_levels,
-+				       ARRAY_SIZE(il97680a_bl_levels), 13, 3445);
-+	if (ret)
-+		return dev_err_probe(dev, ret, "Failed to build backlight levels\n");
 +
++	if (pinfo->variant->linear_brightness) {
++		ret = drm_panel_bl_levels_init(&pinfo->bl_levels, dev,
++					       il97680a_bl_levels,
++					       ARRAY_SIZE(il97680a_bl_levels), 13, 3445);
++		if (ret)
++			return dev_err_probe(dev, ret, "Failed to build backlight levels\n");
++	}
+ 
  	pinfo->panel.backlight = il97680a_create_backlight(dsi);
  	if (IS_ERR(pinfo->panel.backlight))
- 		return dev_err_probe(dev, PTR_ERR(pinfo->panel.backlight),

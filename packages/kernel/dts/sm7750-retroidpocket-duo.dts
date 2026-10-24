@@ -809,7 +809,7 @@
 	status = "okay";
 
 	panel@0 {
-		compatible = "il97680a,rpduo";
+		compatible = "retroidpocket,rpduo-panel-bottom";
 		reg = <0>;
 
 		vddio-supply = <&vddio_panel_bottom>;

@@ -97,12 +97,13 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   upstream: unknown
   notes: Ports the Pocket Max init sequence, four vendor modes and per-panel shutdown delays onto Armada's Linux 7.2 managed-panel driver while retaining Armada's luminance-linear backlight scale.
 - `patches/0106-drm-panel-il97680a-luminance-linear-backlight-scale.patch`
-  source: armada
+  source: armada; original brightness curve by virtudude <virtudude@protonmail.com>.
   upstream: not submitted
+  notes: Rebased onto the upstream candidate, with the unchanged lookup table scoped to Nova; Duo retains raw brightness. Uses the core's cached brightness reporting.
 - `patches/0107-drm-msm-dpu-AVR-variable-refresh-on-DSI-video-mode.patch`
   source: https://github.com/portare-ch/portareos/blob/67ed458421d919aba9c687c3f72d7678954b6902/projects/PortareOS/devices/SM8550/patches/linux/1097-drm-msm-dpu-AVR-variable-refresh-on-DSI-video-mode.patch
   upstream: unknown
-  notes: Rebased onto Armada’s Linux 7.2.6 display stack and panel driver, retaining its 60/120 Hz modes and luminance-linear backlight; the range is 80–120 Hz, following PortareOS #601.
+  notes: Host-side AVR changes unchanged. Panel changes rebased onto the upstream candidate, restoring Nova video mode, its 20 ms display-on delay and shutdown transfer mode, and 80–120 Hz VRR following PortareOS #601. Duo retains command mode without VRR.
 - `patches/0108-drm-msm-dpu-send-the-flip-event-after-the-vblank-irq.patch`
   source: https://github.com/portare-ch/portareos/blob/be06100b6d127692ed99401d23980fc04888ae01/projects/PortareOS/devices/SM8550/patches/linux/1098-drm-msm-dpu-send-the-flip-event-after-the-vblank-irq.patch
   upstream: unknown
@@ -119,9 +120,9 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   upstream: unknown
   notes: Ported to Linux 7.2's managed DRM panel allocator.
 - `patches/0105-drm-panel-Add-Retroid-Pocket-Nova-panel.patch`
-  source: https://github.com/ROCKNIX/distribution/blob/bcf3b5bc574990b96543484575b06f912153a715/projects/ROCKNIX/devices/SM8550/patches/linux/0105-drm-panel-Add-Retroid-Pocket-Nova-panel.patch
-  upstream: unknown
-  notes: Ported to Linux 7.2's managed DRM panel allocator.
+  source: Teguh Sobirin's RetroidPocket driver (https://github.com/RetroidPocket/linux/commit/32d07e207d8c09b97b9ad5009999c32c7058d4af) and binding (https://github.com/RetroidPocket/linux/commit/9bfe85be2179d03338d09b8900f3b1916999ef15), adapted by Jacob Pyke.
+  upstream: Draft; not submitted or accepted.
+  notes: Introduces the Nova/Duo upstream candidate and binding as the base driver. Only the orientation helper name is adapted to Linux 7.2.6. Armada's brightness curve.
 - `patches/0104a-drm-panel-visionox-vtdr6130-add-sm8250.patch`
   source: https://github.com/armada-os/armada/issues/327
   upstream: unknown
@@ -696,6 +697,7 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `dts/sm7750-retroidpocket-duo.dts`
   source: armada
   upstream: local
+  notes: Bottom panel uses retroidpocket,rpduo-panel-bottom from the IL97680A candidate; existing supply wiring and orientation are preserved.
 - `dts/qcs8550-ayaneo-pocketace.dts`
   source: https://github.com/ROCKNIX/distribution/blob/bcf3b5bc574990b96543484575b06f912153a715/projects/ROCKNIX/devices/SM8550/linux/dts/qcom/qcs8550-ayaneo-pocketace.dts
 - `dts/qcs8550-ayaneo-pocket-common.dtsi`
@@ -821,7 +823,7 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   notes: Armada switches Pocket 6 from ROCKNIX's Odin 2 fallback to audio firmware extracted from a Pocket 6 vendor image, and drives its haptics actuator as an LRA with the stock Android values (board-id 0x1001f overlay) instead of the inherited Odin 2 ERM config.
 - `dts/qcs8550-retroidpocket-rpnova.dts.patch`
   source: armada
-  notes: Armada disables the inherited Pocket 6 PWM backlight and removes its panel reference so Nova uses its panel driver’s DSI backlight.
+  notes: Selects the candidate's retroidpocket,rpnova-panel compatible, disables the inherited Pocket 6 PWM backlight and removes its panel reference so Nova uses the driver's DSI backlight. Preserves existing supply wiring and dithering.
 - `dts/qcs8550-ayn-thor.dts.patch`
   source: armada
   notes: Armada fixes the hall-sensor pinctrl, makes only the lid-open edge wake, corrects touch orientation, and enables DPU dithering on the top panel after copying `dts/qcs8550-ayn-thor.dts`.
@@ -894,10 +896,10 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1111-drm-panel-vtdr6130-add-pocket-duo.patch`
   source: Armada implementation from the unit's Android panel properties.
   upstream: No.
-- `patches/1113-drm-panel-il97680a-add-pocket-duo.patch`
-  source: Armada implementation from the unit's Android panel properties and GPIO capture; command sequence from https://github.com/RetroidPocket/linux/commit/32d07e207d8c09b97b9ad5009999c32c7058d4af
+- `patches/1113-drm-panel-il97680a-preserve-duo-power-sequencing.patch`
+  source: Armada implementation from the unit's Android panel properties and GPIO capture.
   upstream: No.
-  notes: Shares Nova's DCS helpers and timings; Duo command-mode initialization follows RetroidPocket, retaining ordered board supply handling and raw brightness.
+  notes: Duo support is now in 0105. This follow-up preserves the existing ordered supply enables, voltage/load votes, delays and unwind on top of the candidate's variant data. Nova bulk power handling is unchanged.
 - `patches/1114-remoteproc-qcom-add-eliza-wpss.patch`
   source: Armada; existing Linux Milos/SC7280 WPSS support and Qualcomm Kera downstream sources, checked against the Duo Android FDT.
   upstream: No.
@@ -994,7 +996,6 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: Armada; RetroidPocket WCN7750 driver and board resources.
   upstream: No.
   notes: Documents the hybrid-bus resources in place of the experimental supplies-only binding.
-
 - `patches/1162-scsi-ufs-ufs-qcom-add-Eliza-match-data.patch`
   source: https://github.com/RetroidPocket/linux/commit/1213eb175774de1f4ba6577a4329bba58729840d
   upstream: RetroidPocket downstream tree, not confirmed merged in mainline.
