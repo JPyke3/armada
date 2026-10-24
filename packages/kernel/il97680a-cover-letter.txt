@@ -1,0 +1,59 @@
+From b6847f5ceb27c16fdd11dc5e5c08b513f08ea8bb Mon Sep 17 00:00:00 2001
+From: Jacob Pyke <jacob@pyk.ee>
+Date: Sat, 24 Oct 2026 14:36:29 +1000
+Subject: [PATCH 0/2] Add IL97680A panels for Retroid Pocket Nova and Duo
+
+This series adds the Ilitek IL97680A-based 1280x960 panels used by the
+Retroid Pocket Nova and the bottom display of the Retroid Pocket Duo.
+It is based on Teguh Sobirin's RetroidPocket implementation, with shared
+panel data, per-variant supply handling and shutdown error handling
+prepared by Jacob Pyke.
+
+Both variants use four-lane RGB888 command mode with fixed 60 Hz and
+120 Hz timings and DCS brightness control. The series contains a binding
+and driver and does not add full board Devicetrees or downstream VRR and
+brightness-mapping extensions.
+
+This is a local draft for hardware testing. The ARM64 panel object builds
+with W=1 on the stated mainline base and with the orientation API name
+adapted on Armada's Linux 7.2.6 stack. Both patches pass strict checkpatch,
+and dt_binding_check passes for the binding and both examples. The Armada
+Nova and Duo test DTBs compile, and the Duo bottom-panel node passes the
+new binding. The preserved downstream Nova node does not pass it.
+No runtime testing of this candidate has been performed.
+
+A read-only inspection of the currently booted Armada Nova found that its
+existing node provides only vddio and an unused avdd supply. The running
+driver uses dummy regulators for vdd, vci, vdd18 and vdd28. The proposed
+binding follows the five-supply description in RetroidPocket's tree;
+that physical supply mapping still needs verification. The Armada
+test stack applies these two patches directly, with a separate one-line
+orientation-helper adaptation for Linux 7.2.6 and no downstream panel
+extensions. It preserves the existing wiring and cannot be used to claim
+validation of all five Nova supplies.
+
+The original authorship and existing Signed-off-by trailers are retained.
+Jacob's adaptations and sign-off are recorded in each patch. No Tested-by
+or Acked-by tags have been added.
+
+Before sending, update this draft with the actual results on both devices
+and resolve the Nova supply-description discrepancy.
+
+Teguh Sobirin (2):
+  dt-bindings: display: panel: Add Retroid Pocket IL97680A panels
+  drm/panel: Add Ilitek IL97680A panels for Retroid Pocket Nova and Duo
+
+ .../display/panel/ilitek,il97680a.yaml        | 121 ++++++
+ MAINTAINERS                                   |   7 +
+ drivers/gpu/drm/panel/Kconfig                 |  11 +
+ drivers/gpu/drm/panel/Makefile                |   1 +
+ drivers/gpu/drm/panel/panel-ilitek-il97680a.c | 394 ++++++++++++++++++
+ 5 files changed, 534 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/display/panel/ilitek,il97680a.yaml
+ create mode 100644 drivers/gpu/drm/panel/panel-ilitek-il97680a.c
+
+
+base-commit: 17bb0e2f6c8043f70a693a5f3797471cbed354c8
+-- 
+2.55.0
+

@@ -96,14 +96,10 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: https://github.com/ROCKNIX/distribution/blob/807c74fc46c124891d8aa9b57a68533d38e9a6b2/projects/ROCKNIX/devices/SM8250/patches/linux/0057_Chipone-ICNA35XX-panel.patch
   upstream: unknown
   notes: Ports the Pocket Max init sequence, four vendor modes and per-panel shutdown delays onto Armada's Linux 7.2 managed-panel driver while retaining Armada's luminance-linear backlight scale.
-- `patches/0106-drm-panel-il97680a-luminance-linear-backlight-scale.patch`
-  source: armada; original brightness curve by virtudude <virtudude@protonmail.com>.
-  upstream: not submitted
-  notes: Rebased onto the upstream candidate, with the unchanged lookup table scoped to Nova; Duo retains raw brightness. Uses the core's cached brightness reporting.
 - `patches/0107-drm-msm-dpu-AVR-variable-refresh-on-DSI-video-mode.patch`
   source: https://github.com/portare-ch/portareos/blob/67ed458421d919aba9c687c3f72d7678954b6902/projects/PortareOS/devices/SM8550/patches/linux/1097-drm-msm-dpu-AVR-variable-refresh-on-DSI-video-mode.patch
   upstream: unknown
-  notes: Host-side AVR changes unchanged. Panel changes rebased onto the upstream candidate, restoring Nova video mode, its 20 ms display-on delay and shutdown transfer mode, and 80–120 Hz VRR following PortareOS #601. Duo retains command mode without VRR.
+  notes: Host-side AVR infrastructure only in this candidate test stack. All IL97680A hunks are omitted; neither panel advertises VRR. Host hunks are unchanged.
 - `patches/0108-drm-msm-dpu-send-the-flip-event-after-the-vblank-irq.patch`
   source: https://github.com/portare-ch/portareos/blob/be06100b6d127692ed99401d23980fc04888ae01/projects/PortareOS/devices/SM8550/patches/linux/1098-drm-msm-dpu-send-the-flip-event-after-the-vblank-irq.patch
   upstream: unknown
@@ -119,10 +115,18 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
   source: https://github.com/ROCKNIX/distribution/blob/bcf3b5bc574990b96543484575b06f912153a715/projects/ROCKNIX/devices/SM8550/patches/linux/0104-drm-panel-Add-Retroid-Pocket-6-panel.patch
   upstream: unknown
   notes: Ported to Linux 7.2's managed DRM panel allocator.
-- `patches/0105-drm-panel-Add-Retroid-Pocket-Nova-panel.patch`
-  source: Teguh Sobirin's RetroidPocket driver (https://github.com/RetroidPocket/linux/commit/32d07e207d8c09b97b9ad5009999c32c7058d4af) and binding (https://github.com/RetroidPocket/linux/commit/9bfe85be2179d03338d09b8900f3b1916999ef15), adapted by Jacob Pyke.
+- `patches/0105-dt-bindings-display-panel-retroid-pocket-il97680a.patch`
+  source: Teguh Sobirin's RetroidPocket binding (https://github.com/RetroidPocket/linux/commit/9bfe85be2179d03338d09b8900f3b1916999ef15), adapted by Jacob Pyke.
   upstream: Draft; not submitted or accepted.
-  notes: Introduces the Nova/Duo upstream candidate and binding as the base driver. Only the orientation helper name is adapted to Linux 7.2.6. Armada's brightness curve.
+  notes: Mailing-list patch 1/2, including the binding and MAINTAINERS entry. Nova physical supply mapping remains unverified.
+- `patches/0105a-drm-panel-ilitek-il97680a.patch`
+  source: Teguh Sobirin's RetroidPocket driver (https://github.com/RetroidPocket/linux/commit/32d07e207d8c09b97b9ad5009999c32c7058d4af), adapted by Jacob Pyke.
+  upstream: Draft; not submitted or accepted.
+  notes: Mailing-list patch 2/2, with fixed 60/120 Hz command mode, raw DCS brightness and per-variant bulk supplies. Makefile context narrowed to apply unchanged on both mainline and 7.2.6. No downstream panel extensions follow it, only the separate API compatibility patch.
+- `patches/0105b-drm-panel-il97680a-linux-7.2-compat.patch`
+  source: armada
+  upstream: Local test adaptation only; do not submit.
+  notes: Changes only drm_of_get_panel_orientation to of_drm_get_panel_orientation for Linux 7.2.6. This is the sole C source difference from the upstream candidate.
 - `patches/0104a-drm-panel-visionox-vtdr6130-add-sm8250.patch`
   source: https://github.com/armada-os/armada/issues/327
   upstream: unknown
@@ -896,10 +900,6 @@ no equivalent submission was found, or a permanent URL to the upstream submissio
 - `patches/1111-drm-panel-vtdr6130-add-pocket-duo.patch`
   source: Armada implementation from the unit's Android panel properties.
   upstream: No.
-- `patches/1113-drm-panel-il97680a-preserve-duo-power-sequencing.patch`
-  source: Armada implementation from the unit's Android panel properties and GPIO capture.
-  upstream: No.
-  notes: Duo support is now in 0105. This follow-up preserves the existing ordered supply enables, voltage/load votes, delays and unwind on top of the candidate's variant data. Nova bulk power handling is unchanged.
 - `patches/1114-remoteproc-qcom-add-eliza-wpss.patch`
   source: Armada; existing Linux Milos/SC7280 WPSS support and Qualcomm Kera downstream sources, checked against the Duo Android FDT.
   upstream: No.

@@ -31,8 +31,9 @@
 0063-gpu-drm-panel-add-wt0600-1k-panel.patch
 0104-drm-panel-Add-Retroid-Pocket-6-panel.patch
 0104a-drm-panel-visionox-vtdr6130-add-sm8250.patch
-0105-drm-panel-Add-Retroid-Pocket-Nova-panel.patch
-0106-drm-panel-il97680a-luminance-linear-backlight-scale.patch
+0105-dt-bindings-display-panel-retroid-pocket-il97680a.patch
+0105a-drm-panel-ilitek-il97680a.patch
+0105b-drm-panel-il97680a-linux-7.2-compat.patch
 0107-drm-msm-dpu-AVR-variable-refresh-on-DSI-video-mode.patch
 0108-drm-msm-dpu-send-the-flip-event-after-the-vblank-irq.patch
 0064_Mangmi-Air-Y-Pro-panel.patch
@@ -254,7 +255,6 @@ v2_20260420_neil_armstrong_arm64_qcom_sm8650_misc_enhancements.patch
 
 # ============== SM7750 (Retroid Pocket Duo) ==============
 1111-drm-panel-vtdr6130-add-pocket-duo.patch
-1113-drm-panel-il97680a-preserve-duo-power-sequencing.patch
 1114-remoteproc-qcom-add-eliza-wpss.patch
 1139-soc-qcom-smp2p-reset-input-state-only-on-restart.patch
 # RetroidPocket WCN7750 ath12k backports (Linux 7.2.6)

@@ -1,0 +1,23 @@
+From: Jacob Pyke <jacob@pyk.ee>
+Subject: [PATCH] drm/panel: il97680a: use the Linux 7.2 orientation helper
+
+Adapt the upstream candidate to Armada's Linux 7.2.6 build. The helper
+was renamed after that release; only the name differs here.
+
+This is a local test compatibility patch. Do not include it in the
+upstream mailing-list series. No panel behavior is changed.
+
+Signed-off-by: Jacob Pyke <jacob@pyk.ee>
+---
+diff --git a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c b/drivers/gpu/drm/panel/panel-ilitek-il97680a.c
+--- a/drivers/gpu/drm/panel/panel-ilitek-il97680a.c
++++ b/drivers/gpu/drm/panel/panel-ilitek-il97680a.c
+@@ -351,7 +351,7 @@
+ 	pinfo->dsi = dsi;
+ 	mipi_dsi_set_drvdata(dsi, pinfo);
+ 
+-	ret = drm_of_get_panel_orientation(dev->of_node, &pinfo->orientation);
++	ret = of_drm_get_panel_orientation(dev->of_node, &pinfo->orientation);
+ 	if (ret < 0)
+ 		return dev_err_probe(dev, ret, "Failed to get orientation\n");
+ 

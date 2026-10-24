@@ -1,0 +1,74 @@
+IL97680A plain upstream-candidate test on Armada Linux 7.2.6
+
+This test configuration is on feat-rp-duo. It does not bump BASE.env.
+The previous Armada integration, with its panel extensions, is preserved
+in commit 3bfb11b2dbfc6f0751dccabbfdef5e85b2b3d6ab.
+
+MAILING-LIST FILES
+
+Send only these two patches, in order, once hardware validation and the
+Nova supply description are resolved:
+
+  patches/0105-dt-bindings-display-panel-retroid-pocket-il97680a.patch
+  patches/0105a-drm-panel-ilitek-il97680a.patch
+
+These are git-format-patch mail messages for the binding and driver.
+They include the MAINTAINERS entries, original author attribution and
+Signed-off-by trailers. The exact same files apply both to Armada's
+7.2.6 stack and the recorded mainline base:
+
+  17bb0e2f6c8043f70a693a5f3797471cbed354c8
+
+The driver patch's Makefile hunk uses one context line either side to
+avoid unrelated panel entries that differ between these kernel versions.
+The resulting mainline tree is identical to the previously validated
+candidate: ee49559c1f522eb96055803ed3a81d0ea3045d8b.
+
+il97680a-cover-letter.txt is a draft cover letter. Update the test results
+before sending. Check the DRM maintainer's target tree before submission:
+https://docs.kernel.org/process/submitting-patches.html
+
+LOCAL COMPATIBILITY ONLY
+
+  patches/0105b-drm-panel-il97680a-linux-7.2-compat.patch
+
+Do not send this third patch upstream. It changes only the orientation
+helper name from drm_of_get_panel_orientation to of_drm_get_panel_orientation,
+which is the API provided by Linux 7.2.6. This is the sole difference in
+the tested driver C source versus the mailing-list candidate.
+
+No later patch changes the IL97680A driver or binding. The Nova brightness
+curve, panel VRR/video-mode changes and Duo ordered supply handling are
+removed. Both variants use the candidate's fixed 60/120 Hz command modes,
+raw DCS brightness and per-variant bulk supplies. The AVR patch retains
+only host infrastructure; neither panel advertises VRR.
+
+BUILD AND TEST
+
+From the Armada repository root:
+
+  env -u FAST bash packages/build-local.sh kernel
+
+Use the normal test-image workflow to deploy the resulting package.
+Do not use FAST=1 with the direct kernel build script: it reuses the old
+patched tree. No kernel or image has been installed by this preparation.
+
+Test cold boot, 60/120 Hz mode switching, low/mid/high/zero brightness,
+blank/unblank and repeated suspend/resume on both devices. This is a
+candidate test, not validation of the previous Armada panel extensions.
+
+The current Nova node supplies only vddio plus an unused avdd mapping;
+the remaining four driver supplies use dummy regulators. Its existing
+wiring is preserved. A successful boot cannot validate the proposed
+five-supply binding: resolve the physical supply mapping before a final
+submission. The Duo bottom-panel node passed the earlier binding check.
+
+VALIDATION
+
+All 262 kernel patches and the vendor DTS patches apply with fuzz disabled;
+all kernel patch hunks are consumed. The two mailing-list patches import
+with git am onto the mainline base and pass strict checkpatch with zero
+diagnostics. Driver, binding and both board sources match the plain
+candidate already compiled and checked earlier. Earlier checks included
+ARM64 W=1 panel object builds, both DTB builds and dt_binding_check.
+No full image build or runtime hardware test has been performed here.
